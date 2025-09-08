@@ -1,4 +1,4 @@
 // pages/index.js
-import Home from '../layout/Home';
+import Home from '../../components/layout/Home';
 
 export default Home;
