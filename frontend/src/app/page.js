@@ -1,10 +1,20 @@
 "use client";
 import { motion } from "framer-motion";
+import Home from "./layout/Home";
+// import {VT323 } from 'next/font/google';
 
-export default function Home() {
+// export const vt323 = VT323({weight:"400",subsets:["latin"], variable:"--font-vt323"});
+
+export default function MyApp() {
   return (
-    <div style={{display:"flex", backgroundColor:"000000",justifyContent:"center",alignItems:"center",width:"100%",height:"100%",gap:20}}>
-      <h1>Plantilla </h1>
+    <div className="h-screen flex items-center justify-center text-white">
+
+      <div className="h-screen flex items-start justify-center">
+        <h1 className="font-pixel text-4xl text-center">SkillSwap</h1>
+        {/* className={`${vt323.className} font-pixel text-4xl text-center`} */}
+        <Home />
+      </div>
+
       <motion.div
       style={{
         width:100,
