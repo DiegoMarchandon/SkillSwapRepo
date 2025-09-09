@@ -1,26 +1,49 @@
+'use client';
 import axios from 'axios';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 const Register = () => {
-  const [username, setUsername] = useState('');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
   const [error, setError] = useState(null);
-
-  const handleSubmit = async (event) => {
+  const router = useRouter();
+  
+const handleSubmit = async (event) => {
     event.preventDefault();
     try {
       console.log(axios.defaults);
-      const response = await axios.post('http://localhost:8000/api/register', {
-        username,
+      // hacemos la petición para obtener la cookie CSRF de Laravel antes de registrar al usuario. 
+      await axios.get('http://127.0.0.1:8000/sanctum/csrf-cookie', { withCredentials: true });
+      
+      // Registramos al usuario
+      const response = await axios.post('http://127.0.0.1:8000/api/register', {
+        name,
         email,
         password,
-      });
+        password_confirmation: passwordConfirm
+        },
+        { withCredentials: true 
+        } // No hace falta enviar headers manuales
+      );
       const token = response.data.token;
       // Redirigir al usuario a la vista de inicio de sesión o a la vista principal
-      Router.push('/login');
+      router.push('/login');
     } catch (error) {
-      setError(error.message);
+      if(error.response && error.response.status === 422){
+        const apiErrors = error.response.data.errors;
+        const formattedErrors = {};
+        // recorremos todos los campos que tienen errores
+        for (const field in apiErrors) {
+          // Guardamos todos los mensajes como un string separado por comas 
+          formattedErrors[field] = apiErrors[field][0];
+        }
+        setError(formattedErrors);
+      }else{
+        setError(error.message);
+      }
     }
   };
 
@@ -35,10 +58,11 @@ const Register = () => {
             </label>
             <input
               type="text"
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
               className="w-full text-black px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            <p className="text-red-500">{error?.response?.errors?.name?.[0]}</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -50,6 +74,7 @@ const Register = () => {
               onChange={(event) => setEmail(event.target.value)}
               className="w-full text-black px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            <p className="text-red-500">{error?.response?.errors?.email?.[0]}</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -61,6 +86,19 @@ const Register = () => {
               onChange={(event) => setPassword(event.target.value)}
               className="w-full text-black px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            <p className="text-red-500">{error?.response?.errors?.password?.[0]}</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Confirmar Contraseña:
+            </label>
+            <input
+              type="password"
+              value={passwordConfirm}
+              onChange={(event) => setPasswordConfirm(event.target.value)}
+              className="w-full text-black px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-red-500">{error?.response?.errors?.password?.[0]}</p>
           </div>
           <button
             type="submit"
@@ -68,8 +106,8 @@ const Register = () => {
           >
             Registrar
           </button>
-          {error && (
-            <p className="text-red-600 text-sm mt-2 text-center">{error}</p>
+          {error?.response?.data?.message && (
+            <p className="text-red-600 text-sm mt-2 text-center">{error.response.data.message}</p>
           )}
         </form>
       </div>
