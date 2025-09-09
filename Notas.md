@@ -1,4 +1,4 @@
-Estructura 
+## Estructura 
 skillSwap/
 │
 ├── backend/                # Proyecto Laravel
@@ -28,3 +28,9 @@ skillSwap/
 │   └── ...
 ├── docs/                   # Documentación del proyecto
 └── README.md
+
+## Incorporaciones sobre la marcha
+
+### frame motion para animaciones 3D
+
+### axios para solicitudes HTTP en JS
