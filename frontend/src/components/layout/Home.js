@@ -1,5 +1,7 @@
 import Head from "next/head";
 import Header from "./Header";
+import Footer from "./Footer";
+// import MainButton from "../ui/buttons/MainButton";
 
 function Home(){
     return(
@@ -8,12 +10,11 @@ function Home(){
         
         */
         <div>
-
             <Header />
             <div className="h-screen flex items-start justify-center text-4xl">
-
                 <h1 style={{ fontFamily:'VT323' }}>SkillSwap (Home.js) </h1>
             </div>
+            <Footer />
         </div>
     );
 }
