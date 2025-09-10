@@ -4,8 +4,8 @@ export default function Navbar(){
         <nav>
     <ul className="flex gap-4">
       <li><a href="/">Inicio</a></li>
-      <li><a href="/about">Acerca de</a></li>
-      <li><a href="/contact">Contacto</a></li>
+      <li><a href="/register">Registrarse</a></li>
+      <li><a href="/login">Iniciar Sesion</a></li>
     </ul>
   </nav>
     );
