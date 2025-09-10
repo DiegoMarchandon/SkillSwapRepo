@@ -4,16 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 
 class AuthController extends Controller
 {
-    // Registro
-    public function register(Request $request)
+    public function register(Request $r)
     {
-        $data = $request->validate([
+        $data = $r->validate([
             'name'     => ['required', 'string', 'max:100'],
             'email'    => ['required', 'email', 'unique:users,email'],
             'password' => ['required', 'confirmed', Password::min(8)],
@@ -25,42 +23,30 @@ class AuthController extends Controller
             'password' => Hash::make($data['password']),
         ]);
 
-        // Login automático después del registro
-        Auth::login($user);
+        $token = $user->createToken('web')->plainTextToken;
 
-        return response()->json([
-            'message' => 'Usuario registrado correctamente',
-            'user'    => $user
-        ], 201);
+        return response()->json(['user' => $user, 'token' => $token], 201);
     }
 
-    // Login
-    public function login(Request $request)
+    public function login(Request $r)
     {
-        $credentials = $request->validate([
+        $data = $r->validate([
             'email'    => ['required', 'email'],
             'password' => ['required'],
         ]);
 
-        if (! Auth::attempt($credentials)) {
-            return response()->json(['message' => 'Credenciales inválidas'], 422);
+        $user = User::where('email', $data['email'])->first();
+        if (!$user || !Hash::check($data['password'], $user->password)) {
+            return response()->json(['message' => 'Credenciales inválidas'], 401);
         }
 
-        $request->session()->regenerate();
-
-        return response()->json([
-            'message' => 'Login exitoso',
-            'user'    => Auth::user()
-        ]);
+        $token = $user->createToken('web')->plainTextToken;
+        return response()->json(['user' => $user, 'token' => $token]);
     }
 
-    // Logout
-    public function logout(Request $request)
+    public function logout(Request $r)
     {
-        Auth::guard('web')->logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-
-        return response()->json(['message' => 'Sesión cerrada']);
+        $r->user()->currentAccessToken()?->delete();
+        return response()->json(['ok' => true]);
     }
 }
