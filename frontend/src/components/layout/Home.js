@@ -73,6 +73,7 @@ useEffect(() => {
 
         </div>
       </div>
+          
       <Footer />
     </div>
   );
