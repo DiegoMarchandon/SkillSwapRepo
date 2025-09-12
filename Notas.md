@@ -24,6 +24,7 @@ skillSwap/
 │   │   ├── lib/                # funciones helpers (fetch API, validaciones)
 │   │   ├── styles/             # Tailwind o CSS modules
 │   │   ├── public/             # assets públicos (imágenes, íconos, favicon, etc.)
+│   │   ├── utils/             # funciones que manejan lógica relacionada a los componentes.
 │   │   └── ...
 │   └── ...
 ├── docs/                   # Documentación del proyecto
