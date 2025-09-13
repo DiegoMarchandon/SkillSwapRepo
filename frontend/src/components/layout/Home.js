@@ -5,6 +5,7 @@ import SkillCard from "../ui/cards/SkillCard";
 import { useAnimationFrame, useMotionValue } from "framer-motion";
 import OrbitFunction from "../../utils/mathUtils";
 import { useState, useEffect } from "react";
+import TypingContainer from "../home/TypingContainer";
 
 function Home() {
 
@@ -73,7 +74,9 @@ useEffect(() => {
 
         </div>
       </div>
-          
+          <div className="h-14.5">
+            <TypingContainer />
+          </div>
       <Footer />
     </div>
   );
