@@ -1,9 +1,12 @@
 'use client';
-import axios from 'axios';
+// import axios from 'axios';
+import api from '../../utils/axios';
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 // import Register from '../pages/register';
 import RegisterForm from '../../components/forms/RegisterForm';
+import { useAuth } from '../../context/AuthContext';
 
 export default function RegisterPage() {
 
@@ -13,16 +16,17 @@ export default function RegisterPage() {
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [error, setError] = useState(null);
   const router = useRouter();
-  
+  const {login} = useAuth();
+
   const handleSubmit = async (event) => {
       event.preventDefault();
       try {
-        console.log(axios.defaults);
+        // console.log(axios.defaults);
         // hacemos la petición para obtener la cookie CSRF de Laravel antes de registrar al usuario. 
-        await axios.get('http://localhost:8000/sanctum/csrf-cookie', { withCredentials: true });
+        await api.get('/sanctum/csrf-cookie');
         
         // Registramos al usuario
-        const response = await axios.post('http://localhost:8000/api/register', {
+        const response = await api.post('/api/register', {
           name,
           email,
           password,
@@ -33,7 +37,8 @@ export default function RegisterPage() {
         );
         // guardo el token en localStorage
         const token = response.data.token;
-        localStorage.setItem('token', token);
+        // localStorage.setItem('token', token);
+        login(token);
         // Redirigir al usuario a la vista principal
         router.push('/');
       } catch (error) {

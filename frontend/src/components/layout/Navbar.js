@@ -1,30 +1,17 @@
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
+// import axios from 'axios';
+import api from '../../utils/axios';
 
 export default function Navbar(){
 
   
   const router = useRouter();
-  const {user} = useAuth();
+  const {user,logout,loading} = useAuth();
 
-    const handleLogout = async() => {
-      console.log("hola desde fuera del try");
-      try{
-        console.log("hola desde logout");
-        // antes de desloguearme, pido el token CSRF a Laravel:
-        await axios.get('http://localhost:8000/sanctum/csrf-cookie', { withCredentials: true });
-
-        await axios.post(
-          'http://localhost:8000/api/logout', 
-          {}, 
-          { withCredentials: true }
-        );
-        router.push('/');
-      }catch(error){
-        console.error('Error al cerrar sesión: ', error);
-      }
-    }
+  if(loading){
+    return <nav>Loading...</nav>;
+  }
 
     return(
       <nav>
@@ -33,7 +20,7 @@ export default function Navbar(){
           {
             user ? (
               <li>
-                <button onClick={handleLogout}>
+                <button onClick={logout}>
                 Cerrar Sesion
                 </button>
               </li>
