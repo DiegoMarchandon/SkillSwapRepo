@@ -17,10 +17,11 @@ skillSwap/
 │   │   │   ├── profile/        # perfiles de usuarios
 │   │   │   └── ...
 │   │   ├── components/         # componentes reutilizables (botones, forms, cards, etc.)
-│   │   │   │   ├── layout/     # componentes relacionados con estructura y diseño gral (header, container, footer, etc.)
-│   │   │   │   ├── ui/         # componentes relacionados con la interfaz de usuario (Button, input, Modal, Select, etc.)
-│   │   │   │   ├── forms/      # componentes relacionados con formularios (LoginForm,RegisterForm,ContactForm, etc.)
-│   │   │   │   └── ...
+│   │   │       ├── layout/     # componentes relacionados con estructura y diseño gral (header, container, footer, etc.)
+│   │   │       ├── ui/         # componentes relacionados con la interfaz de usuario (Button, input, Modal, Select, etc.)
+│   │   │       ├── forms/      # componentes relacionados con formularios (LoginForm,RegisterForm,ContactForm, etc.)
+│   │   │       └── ...
+│   │   ├── context/            # contextos creados para compartir datos entre componentes 
 │   │   ├── hooks/              # funciones personalizadas de React (useState, useEffect, etc.)
 │   │   ├── lib/                # funciones helpers (fetch API, validaciones)
 │   │   ├── styles/             # Tailwind o CSS modules

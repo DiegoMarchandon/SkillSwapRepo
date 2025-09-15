@@ -19,10 +19,10 @@ export default function RegisterPage() {
       try {
         console.log(axios.defaults);
         // hacemos la petición para obtener la cookie CSRF de Laravel antes de registrar al usuario. 
-        await axios.get('http://127.0.0.1:8000/sanctum/csrf-cookie', { withCredentials: true });
+        await axios.get('http://localhost:8000/sanctum/csrf-cookie', { withCredentials: true });
         
         // Registramos al usuario
-        const response = await axios.post('http://127.0.0.1:8000/api/register', {
+        const response = await axios.post('http://localhost:8000/api/register', {
           name,
           email,
           password,
@@ -31,7 +31,9 @@ export default function RegisterPage() {
           { withCredentials: true 
           } // No hace falta enviar headers manuales
         );
+        // guardo el token en localStorage
         const token = response.data.token;
+        localStorage.setItem('token', token);
         // Redirigir al usuario a la vista principal
         router.push('/');
       } catch (error) {

@@ -1,6 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import {VT323 } from 'next/font/google';
+import { AuthProvider } from "../context/AuthContext";
 
 const vt323 = VT323({weight:"400",subsets:["latin"], variable:"--font-vt323"});
 const geistSans = Geist({
@@ -30,7 +31,9 @@ export default function RootLayout({ children }) {
       <body
         className={`${vt323.variable} ${geistSans.variable} ${geistMono.variable} antialiased bg-red-500`}
       >
+        <AuthProvider>
         {children}
+        </AuthProvider>
       </body>
     </html>
   );
