@@ -12,33 +12,37 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (token) {
-      // 👇 paso 3: pedimos datos del usuario real al backend
-      api.get('/api/user')
+
+      // 👇 Ahora consultamos al backend directamente
+      api.get('/api/user', { withCredentials: true })
         .then(res => setUser(res.data))
         .catch(() => setUser(null))
         .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
+    
   }, []);
 
-  const login = (token) => {
-    localStorage.setItem('token', token);
-    // después de guardar el token pedimos info real al backend
-    api.get('/api/user').then(res => setUser(res.data));
+  const login = async(userData) => {
+    // userData viene del backend (al registrar o loguear)
+    setUser(userData);
     router.push('/');
   };
 
   const logout = async () => {
     try {
-        await api.post(
-            '/api/logout',{});
-        localStorage.removeItem('token');
+      // 🔑 Obtener CSRF cookie antes de hacer logout
+    await api.get('/sanctum/csrf-cookie');
+    
+        await api.post('/api/logout',{},{withCredentials: true});
         setUser(null);
         router.push('/');
     }catch(error){
-        console.error("Error al cerrar sesión: ",error);
+        if(error.response?.status !== 401){
+          console.error("Error al cerrar sesión: ",error);
+        }
+        // lo diferenciamos del 401 porque en este caso implica que la sesión ya fue destruida. Por lo que lo ingoraríamos.
+    }finally{
+      setUser(null);
+      router.push('/');
     }
   };
 

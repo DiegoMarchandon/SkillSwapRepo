@@ -21,24 +21,23 @@ export default function RegisterPage() {
   const handleSubmit = async (event) => {
       event.preventDefault();
       try {
-        // console.log(axios.defaults);
-        // hacemos la petición para obtener la cookie CSRF de Laravel antes de registrar al usuario. 
-        await api.get('/sanctum/csrf-cookie');
+        // 1. hacemos la petición para obtener la cookie CSRF de Laravel antes de registrar al usuario. 
+        await api.get('/sanctum/csrf-cookie', { withCredentials: true });
         
-        // Registramos al usuario
+        // 2. Registramos al usuario
         const response = await api.post('/api/register', {
           name,
           email,
           password,
           password_confirmation: passwordConfirm
           },
-          { withCredentials: true 
-          } // No hace falta enviar headers manuales
-        );
-        // guardo el token en localStorage
-        const token = response.data.token;
+          { withCredentials: true});
+
+          // 3. Laravel debería devolver los datos del usuario recién creado
+          const user = response.data.user;
+
         // localStorage.setItem('token', token);
-        login(token);
+        login(user);
         // Redirigir al usuario a la vista principal
         router.push('/');
       } catch (error) {
