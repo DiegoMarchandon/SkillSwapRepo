@@ -1,10 +1,9 @@
 'use client';
-// import axios from 'axios';
-import api from '../../utils/axios';
-import LoginForm from '../../components/forms/LoginForm';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
+import LoginForm from '../../components/forms/LoginForm';
+import api from '../../utils/axios';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -13,42 +12,30 @@ export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
 
-      const handleSubmit = async(event) => {
-          event.preventDefault();
-          try {
-            // 1. hacemos la petición para obtener la cookie CSRF de Laravel antes de registrar al usuario. 
-            await api.get('/sanctum/csrf-cookie',{ withCredentials: true });
-            
-            // 2. Logueamos al usuario
-            const response = await api.post('/api/login', {
-              email,
-              password
-              },
-              { withCredentials: true 
-              } // No hace falta enviar headers manuales
-            );
-            // 3. Laravel debería devolver los datos del usuario recién creado
-            const user = response.data.user;
-            // localStorage.setItem('token', token);
-            login(user);
-            // Redirigir al usuario a la vista principal
-            router.push('/');
-          } catch (error) {
-            if(error.response && error.response.status === 422){
-              setError(error.response.data.errors);
-            }
-      }}
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      // SIN csrf-cookie, es por token
+      const res = await api.post('/api/login', { email, password });
+      const { user, token } = res.data;
+      localStorage.setItem('token', token);
+      login(user);
+      router.push('/');
+    } catch (err) {
+      if (err.response?.status === 422) setError(err.response.data.errors);
+      else if (err.response?.status === 401) setError('Credenciales inválidas');
+      else setError(err.message);
+    }
+  };
 
-    return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-100 p-6">
-            <LoginForm 
-                email={email}
-                setEmail={setEmail}
-                password={password}
-                setPassword={setPassword}
-                error={error} 
-                handleSubmit={handleSubmit}
-            />
-        </div>
-    );
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-6">
+      <LoginForm
+        email={email} setEmail={setEmail}
+        password={password} setPassword={setPassword}
+        error={error}
+        handleSubmit={handleSubmit}
+      />
+    </div>
+  );
 }

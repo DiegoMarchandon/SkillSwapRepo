@@ -1,5 +1,5 @@
 'use client';
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '../utils/axios';
 
@@ -7,50 +7,32 @@ const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
+  // Al montar: si hay token, preguntamos /api/user (lleva Bearer por el interceptor)
   useEffect(() => {
-    const token = localStorage.getItem('token');
-
-      // 👇 Ahora consultamos al backend directamente
-      api.get('/api/user', { withCredentials: true })
-        .then(res => setUser(res.data))
-        .catch(() => setUser(null))
-        .finally(() => setLoading(false));
-    
+    const t = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (!t) { setLoading(false); return; }
+    api.get('/api/user')
+      .then(res => setUser(res.data))
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
   }, []);
 
-  const login = async(userData) => {
-    // userData viene del backend (al registrar o loguear)
-    setUser(userData);
+  const login = (userData) => setUser(userData);
+
+  const logout = async () => {
+    try { await api.post('/api/logout'); } catch {}
+    localStorage.removeItem('token');
+    setUser(null);
     router.push('/');
   };
 
-  const logout = async () => {
-    try {
-      // 🔑 Obtener CSRF cookie antes de hacer logout
-    await api.get('/sanctum/csrf-cookie');
-    
-        await api.post('/api/logout',{},{withCredentials: true});
-        setUser(null);
-        router.push('/');
-    }catch(error){
-        if(error.response?.status !== 401){
-          console.error("Error al cerrar sesión: ",error);
-        }
-        // lo diferenciamos del 401 porque en este caso implica que la sesión ya fue destruida. Por lo que lo ingoraríamos.
-    }finally{
-      setUser(null);
-      router.push('/');
-    }
-  };
-
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 }
-
 export const useAuth = () => useContext(AuthContext);
