@@ -1,5 +1,6 @@
 import Head from "next/head";
 import Header from "./Header";
+import Filter from "./Filter";
 import Footer from "./Footer";
 import SkillCard from "../ui/cards/SkillCard";
 import { useAnimationFrame, useMotionValue } from "framer-motion";
@@ -43,6 +44,7 @@ useEffect(() => {
   return (
     <div>
       <Header />
+      <Filter />
       <div className="h-screen flex items-center justify-center text-4xl">
         <div className="relative w-[400px] h-[400px] flex items-center justify-center">
 
