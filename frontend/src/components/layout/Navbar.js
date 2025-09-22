@@ -14,8 +14,8 @@ export default function Navbar(){
   }
 
     return(
-      <nav>
-        <ul className="flex gap-4">
+      <nav className="w-full bg-gray-900 text-white px-6 py-4">
+        <ul className="flex flex-wrap justify-end gap-4">
           <li><a href="/">Inicio</a></li>
           {
             user ? (

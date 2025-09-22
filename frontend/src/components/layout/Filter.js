@@ -6,8 +6,8 @@ export default function Filter(){
         
         {/* Categoría */}
         <div>
-          <label className="font-semibold mr-2">Categoría:</label>
-          <select className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <label className="font-semibold mr-2 text-gray-600">Categoría:</label>
+          <select className="border text-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option>Todos</option>
             <option>Electrónica</option>
             <option>Ropa</option>
@@ -17,7 +17,7 @@ export default function Filter(){
 
         {/* Rango de precio */}
         <div className="flex items-center gap-3">
-          <label className="font-semibold">Precio:</label>
+          <label className="font-semibold text-gray-600">Precio:</label>
           <input 
             type="range" 
             min="0" 
@@ -29,8 +29,8 @@ export default function Filter(){
 
         {/* Ordenar */}
         <div>
-          <label className="font-semibold mr-2">Ordenar por:</label>
-          <select className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <label className="font-semibold mr-2 text-gray-600">Ordenar por:</label>
+          <select className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-600">
             <option>Relevancia</option>
             <option>Precio: menor a mayor</option>
             <option>Precio: mayor a menor</option>
