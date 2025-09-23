@@ -1,146 +1,245 @@
 'use client';
-import { useState, useEffect } from "react";
 
-export default function UserProfile({ user }) {
-    // plantilla de datos de usuario. Una vez que tenga datos reales reemplazo los Strings
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import api from '../../utils/axios';
+import { useAuth } from '../../context/AuthContext';
+import { toast } from 'react-hot-toast';
 
-    const originalData = {
-    name: "Default Name" || user.name,
-    email: "default@gmail.com" || user.email,
-    role: "defaultRole" || user.role,
-    password: "default password" || user.password,
-    credits: "default (5)" || user.credits,
-    status: "default (Activo)" || user.status,
-    skills_offered: ["React","Tailwind","Node.js","Laravel","PHP","Python"] || user.skills_offered,
-    desired_skills: ["Java","C++","C#","Ruby","Swift"] || user.desired_skills,
-    bio:  "defaultBio" || user.bio,
+export default function ProfilePage() {
+  const router = useRouter();
+  const { user: userCtx, setUser } = useAuth();
+
+  const [loading, setLoading] = useState(true);
+  const [u, setU] = useState({ name: '', email: '' });
+  const [initialU, setInitialU] = useState({ name: '', email: '' });
+
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+
+  const [msg, setMsg] = useState(null);
+  const [err, setErr] = useState(null);
+  const [fieldErrs, setFieldErrs] = useState({});
+
+  const [pwd, setPwd] = useState({ current_password:'', password:'', password_confirmation:'' });
+  const [pwdMsg, setPwdMsg] = useState(null);
+  const [pwdErr, setPwdErr] = useState(null);
+
+  const [saving, setSaving] = useState(false);
+  const [savingPwd, setSavingPwd] = useState(false);
+
+  const loadMe = async () => {
+    try {
+      const { data } = await api.get('/api/user');
+      const next = { name: data.name || '', email: data.email || '' };
+      setU(next);
+      setInitialU(next);
+      // si tu API devuelve avatar_url, podrías mostrarla acá como preview inicial
+      // setAvatarPreview(data.avatar_url ?? null);
+    } catch (e) {
+      if (e.response?.status === 401) router.push('/login');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const [formData,setFormData] = useState(originalData);
-  const [isModified,setIsModified] = useState(true);
-//   console.log("isModified igual a: ", (isModified === false ? "falso" : "verdadero"));
-    console.log("isModified igual a: ", isModified);
+  useEffect(() => { loadMe(); }, [router]);
 
-    // Detectar cambios comparando originalData vs formData
-      useEffect(() => {
-        const iguales = JSON.stringify(formData) === JSON.stringify(originalData);
-        setIsModified(!iguales);
-    }, [formData]);
- 
-    const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    setIsModified(false);
-    // console.log("isModified ahora cambio a: ", isModified);
-};
+  useEffect(() => {
+    if (userCtx && (userCtx.name || userCtx.email)) {
+      const next = { name: userCtx.name ?? '', email: userCtx.email ?? '' };
+      setU(next);
+      setInitialU(next);
+    }
+  }, [userCtx]);
+
+  const onFileChange = (e) => {
+    const file = e.target.files?.[0] || null;
+    setAvatarFile(file);
+    setAvatarPreview(file ? URL.createObjectURL(file) : null);
+  };
+
+  const onRestore = () => {
+    setU(initialU);
+    setAvatarFile(null);
+    setAvatarPreview(null);
+    setFieldErrs({});
+    setErr(null);
+    setMsg(null);
+  };
+
+  const onSubmitProfile = async (e) => {
+    e.preventDefault();
+    setMsg(null); setErr(null); setFieldErrs({});
+
+    if (!u.name.trim()) { setFieldErrs({ name: ['El nombre es obligatorio'] }); return; }
+    if (!/^\S+@\S+\.\S+$/.test(u.email)) { setFieldErrs({ email: ['Email inválido'] }); return; }
+
+    setSaving(true);
+    try {
+      let res;
+      if (avatarFile) {
+        const form = new FormData();
+        form.append('name', u.name);
+        form.append('email', u.email);
+        form.append('avatar', avatarFile);
+        res = await api.put('/api/profile', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+      } else {
+        res = await api.put('/api/profile', { name: u.name, email: u.email });
+      }
+
+      setMsg('Perfil actualizado');
+      toast.success('Perfil actualizado');
+      setUser(prev => ({ ...(prev ?? {}), name: res.data.user.name, email: res.data.user.email }));
+      setAvatarFile(null);
+      // si backend devuelve avatar_url, podrías guardar res.data.avatar_url
+      // setAvatarPreview(res.data.avatar_url ?? null);
+    } catch (e) {
+      if (e.response?.status === 422) {
+        const er = e.response.data.errors || {};
+        setFieldErrs(er);
+        setErr(null);
+      } else {
+        setErr('No se pudo actualizar el perfil');
+        toast.error('No se pudo actualizar el perfil');
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onSubmitPassword = async (e) => {
+    e.preventDefault();
+    setPwdMsg(null); setPwdErr(null);
+
+    if (!pwd.current_password || !pwd.password || !pwd.password_confirmation) {
+      setPwdErr('Completá todos los campos');
+      return;
+    }
+    if (pwd.password !== pwd.password_confirmation) {
+      setPwdErr('La confirmación no coincide');
+      return;
+    }
+
+    setSavingPwd(true);
+    try {
+      const { data } = await api.put('/api/password', pwd);
+      setPwdMsg('Contraseña actualizada');
+      toast.success('Contraseña actualizada');
+      setPwd({ current_password:'', password:'', password_confirmation:'' });
+
+      // si decidís forzar re-login cuando cambian contraseña:
+      if (data?.relogin) {
+        localStorage.removeItem('token');
+        setUser(null);
+        router.push('/login');
+      }
+    } catch (e) {
+      if (e.response?.status === 422) {
+        const er = e.response.data.errors || {};
+        setPwdErr(Object.values(er)[0]?.[0] || 'Datos inválidos');
+      } else if (e.response?.status === 403) {
+        setPwdErr('Contraseña actual incorrecta');
+      } else {
+        setPwdErr('No se pudo actualizar la contraseña');
+      }
+      toast.error('No se pudo actualizar la contraseña');
+    } finally {
+      setSavingPwd(false);
+    }
+  };
+
+  if (loading) return <div className="p-6">Cargando…</div>;
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-lg p-8 flex gap-8">
-        
-        {/* Columna izquierda - Avatar */}
-        <div className="w-1/3 flex flex-col items-center">
-          <img
-            src={"https://revisitglam.com/wp-content/uploads/2022/04/Jordi-ENP.jpg" || user.avatar }
-            alt="avatar"
-            className="w-40 h-40 rounded-full border-4 border-blue-500 shadow-md object-cover"
+    <div className="mx-auto max-w-3xl p-6 space-y-8">
+      <section className="rounded-2xl bg-white p-6 shadow">
+        <h2 className="mb-4 text-xl font-semibold">Perfil</h2>
+
+        {msg && <div className="mb-3 rounded bg-green-50 px-3 py-2 text-sm text-green-700">{msg}</div>}
+        {err && <div className="mb-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+
+        <form onSubmit={onSubmitProfile} className="grid gap-3">
+          <label className="text-sm">Nombre</label>
+          <input
+            className="rounded border p-2"
+            value={u.name}
+            onChange={(e) => setU(s => ({ ...s, name: e.target.value }))}
           />
-          <button className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-            Cambiar foto
+          {fieldErrs.name && <p className="text-xs text-red-600">{fieldErrs.name[0]}</p>}
+
+          <label className="text-sm">Email</label>
+          <input
+            className="rounded border p-2"
+            value={u.email}
+            onChange={(e) => setU(s => ({ ...s, email: e.target.value }))}
+          />
+          {fieldErrs.email && <p className="text-xs text-red-600">{fieldErrs.email[0]}</p>}
+
+          <label className="text-sm">Avatar (opcional)</label>
+          <input type="file" accept="image/*" onChange={onFileChange} />
+          {avatarPreview && (
+            <img src={avatarPreview} alt="preview" className="mt-2 h-20 w-20 rounded-full object-cover border" />
+          )}
+          {fieldErrs.avatar && <p className="text-xs text-red-600">{fieldErrs.avatar[0]}</p>}
+
+          <div className="mt-2 flex gap-2">
+            <button
+              disabled={saving}
+              className={`rounded bg-blue-600 px-4 py-2 text-white ${saving ? 'opacity-60' : ''}`}
+            >
+              {saving ? 'Guardando…' : 'Guardar cambios'}
+            </button>
+            <button
+              type="button"
+              onClick={onRestore}
+              className="rounded bg-gray-200 px-4 py-2"
+            >
+              Restaurar
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section className="rounded-2xl bg-white p-6 shadow">
+        <h2 className="mb-4 text-xl font-semibold">Cambiar contraseña</h2>
+
+        {pwdMsg && <div className="mb-3 rounded bg-green-50 px-3 py-2 text-sm text-green-700">{pwdMsg}</div>}
+        {pwdErr && <div className="mb-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{pwdErr}</div>}
+
+        <form onSubmit={onSubmitPassword} className="grid gap-3">
+          <label className="text-sm">Contraseña actual</label>
+          <input
+            type="password"
+            className="rounded border p-2"
+            value={pwd.current_password}
+            onChange={(e) => setPwd(s => ({ ...s, current_password: e.target.value }))}
+          />
+
+          <label className="text-sm">Nueva contraseña</label>
+          <input
+            type="password"
+            className="rounded border p-2"
+            value={pwd.password}
+            onChange={(e) => setPwd(s => ({ ...s, password: e.target.value }))}
+          />
+
+          <label className="text-sm">Confirmar nueva contraseña</label>
+          <input
+            type="password"
+            className="rounded border p-2"
+            value={pwd.password_confirmation}
+            onChange={(e) => setPwd(s => ({ ...s, password_confirmation: e.target.value }))}
+          />
+
+          <button
+            disabled={savingPwd}
+            className={`mt-2 rounded bg-blue-600 px-4 py-2 text-white ${savingPwd ? 'opacity-60' : ''}`}
+          >
+            {savingPwd ? 'Actualizando…' : 'Actualizar contraseña'}
           </button>
-        </div>
-
-        {/* separador vertical */}
-        <div className="w-px bg-gray-300"></div>
-        {/* Columna derecha - Datos no editables */}
-        <div>
-        <div>
-            <label className="block text-sm font-medium text-gray-600">Rol</label>
-            <p className="mt-1 w-full border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 text-gray-800">{formData.role}</p>
-        </div>
-        <div>
-            <label className="block text-sm font-medium text-gray-600">Creditos</label>
-            <p className="mt-1 w-full border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 text-gray-800">{formData.credits}</p>
-        </div>
-        <div>
-            <label className="block text-sm font-medium text-gray-600">Estado</label>
-            <p className="mt-1 w-full border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 text-gray-800">{formData.status}</p>
-        </div>
-        </div>
-
-        {/* Columna derecha - Datos editables */}
-        <div className="w-2/3 space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-600">Nombre</label>
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              className="mt-1 w-full border-gray-300 rounded-lg shadow-sm px-3 py-2 focus:ring-2 focus:ring-blue-500 text-gray-800"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-600">Correo</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              className="mt-1 w-full border-gray-300 rounded-lg shadow-sm px-3 py-2 focus:ring-2 focus:ring-blue-500 text-gray-800"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-600">Biografía</label>
-            <textarea
-              name="bio"
-              value={formData.bio}
-              onChange={handleChange}
-              rows="4"
-              className="mt-1 w-full border-gray-300 rounded-lg shadow-sm px-3 py-2 focus:ring-2 focus:ring-blue-500 text-gray-800"
-            />
-          </div>
-          
-            <div>
-                <label className="block text-sm font-medium text-gray-600">Habilidades ofrecidas</label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                    {formData.skills_offered.map((skill, idx) => (
-                    <span
-                        key={idx}
-                        className="bg-blue-100 text-blue-800 text-sm px-3 py-1 rounded-full"
-                    >
-                        {skill}
-                    </span>
-                    ))}
-                </div>
-            </div>
-
-            <div>
-                <label className="block text-sm font-medium text-gray-600">Habilidades deseadas</label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                    {formData.desired_skills.map((skill, idx) => (
-                    <span
-                        key={idx}
-                        className="bg-green-100 text-green-800 text-sm px-3 py-1 rounded-full"
-                    >
-                        {skill}
-                    </span>
-                    ))}
-                </div>
-            </div>
-
-          <div className="flex gap-4">
-
-            <button disabled={!isModified} className="disabled:opacity-50 disabled:cursor-not-allowed bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
-              Guardar cambios
-            </button>
-            <button className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors">
-              Cancelar
-            </button>
-          </div>
-        </div>
-      </div>
+        </form>
+      </section>
     </div>
   );
 }
