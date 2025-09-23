@@ -1,39 +1,35 @@
+import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
-import { useRouter } from 'next/navigation';
-// import axios from 'axios';
-import api from '../../utils/axios';
 
-export default function Navbar(){
+export default function Navbar() {
+  const { user, logout, loading } = useAuth();
 
-  
-  const router = useRouter();
-  const {user,logout,loading} = useAuth();
+  if (loading) return <nav className="w-full bg-gray-900 text-white px-6 py-4">Loading…</nav>;
 
-  if(loading){
-    return <nav>Loading...</nav>;
-  }
+  return (
+    <nav className="w-full bg-gray-900 text-white px-6 py-4">
+      <ul className="flex flex-wrap justify-end items-center gap-4">
+        <li><Link href="/">Inicio</Link></li>
+        <li><Link href="/search">Buscar</Link></li>
+        {user && <li><Link href="/skills">Mis habilidades</Link></li>}
+        <li><Link href="/faq">Preguntas frecuentes</Link></li>
 
-    return(
-      <nav className="w-full bg-gray-900 text-white px-6 py-4">
-        <ul className="flex flex-wrap justify-end gap-4">
-          <li><a href="/">Inicio</a></li>
-          {
-            user ? (
-              <li>
-                <button onClick={logout}>
-                Cerrar Sesion
-                </button>
-              </li>
-            ): (
-              <>
-              <li><a href="/register">Registrarse</a></li>
-              <li><a href="/login">Iniciar Sesion</a></li>
-              </>
-            )
-          }
-          <li><a href="/faq">Preguntas frecuentes</a></li>
-          <li><a href="/perfil">Mi perfil</a></li>
-        </ul>
-      </nav>
-    );
+        {user ? (
+          <>
+            <li><Link href="/perfil">Mi perfil</Link></li>
+            <li>
+              <button onClick={logout} className="rounded bg-red-600 px-3 py-1">
+                Cerrar sesión
+              </button>
+            </li>
+          </>
+        ) : (
+          <>
+            <li><Link href="/login">Iniciar sesión</Link></li>
+            <li><Link href="/register">Registrarse</Link></li>
+          </>
+        )}
+      </ul>
+    </nav>
+  );
 }
