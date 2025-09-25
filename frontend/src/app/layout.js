@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import {VT323 } from 'next/font/google';
 import { AuthProvider } from "../context/AuthContext";
+import {Toaster} from 'react-hot-toast';
 
 const vt323 = VT323({weight:"400",subsets:["latin"], variable:"--font-vt323"});
 const geistSans = Geist({
@@ -25,14 +26,27 @@ export const metadata = {
  * @param {{ children: React.ReactNode }} props The props of the component.
  * @returns {React.ReactElement} The rendered component.
  */
+// export default function RootLayout({ children }) {
+//   return (
+//     <html lang="es">
+//       <body
+//         className={`${vt323.variable} ${geistSans.variable} ${geistMono.variable} antialiased bg-red-500`}
+//       >
+//         <AuthProvider>
+//         {children}
+//         </AuthProvider>
+//       </body>
+//     </html>
+//   );
+// }
+
 export default function RootLayout({ children }) {
   return (
     <html lang="es">
-      <body
-        className={`${vt323.variable} ${geistSans.variable} ${geistMono.variable} antialiased bg-red-500`}
-      >
+      <body>
         <AuthProvider>
-        {children}
+          {children}
+          <Toaster position="top-right" />
         </AuthProvider>
       </body>
     </html>

@@ -20,7 +20,10 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const login = (userData) => setUser(userData);
+ const login = (userData, { redirect = false } = {}) => {
+    setUser(userData);
+    if (redirect) router.push('/');
+  };
 
   const logout = async () => {
     try { await api.post('/api/logout'); } catch {}
