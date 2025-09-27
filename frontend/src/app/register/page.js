@@ -6,18 +6,21 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../utils/axios';
 
 export default function RegisterPage() {
+  const router = useRouter();
+  const { login } = useAuth();
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
-  const [error, setError] = useState(null);
-  const router = useRouter();
-  const { login } = useAuth();
+  const [error, setError] = useState(null); // puede ser string u objeto {campo: msg}
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(null);
+
     try {
-      // SIN csrf-cookie, es por token
+      // TOKEN-BASED (sin CSRF cookie)
       const res = await api.post('/api/register', {
         name,
         email,
@@ -27,16 +30,24 @@ export default function RegisterPage() {
 
       const { user, token } = res.data;
       localStorage.setItem('token', token);
-      login(user);              // actualiza contexto/UI
-      router.push('/');
+      login(user); // actualiza el contexto/UI
+
+      // feedback de éxito en /perfil
+      router.push('/perfil?ok=registro');
     } catch (err) {
-      if (err.response?.status === 422) {
+      if (err?.response?.status === 422) {
         const apiErrors = err.response.data.errors || {};
         const formatted = {};
-        for (const k in apiErrors) formatted[k] = apiErrors[k][0];
+        Object.keys(apiErrors).forEach((k) => {
+          formatted[k] = Array.isArray(apiErrors[k]) ? apiErrors[k][0] : String(apiErrors[k]);
+        });
         setError(formatted);
       } else {
-        setError(err.message);
+        const msg =
+          err?.response?.data?.message ||
+          err?.message ||
+          'No se pudo completar el registro.';
+        setError(msg);
       }
     }
   };

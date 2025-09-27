@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import api from '../../utils/axios';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 
 export default function ProfilePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
   const { user: userCtx, setUser } = useAuth();
 
   const [loading, setLoading] = useState(true);
@@ -28,14 +30,16 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [savingPwd, setSavingPwd] = useState(false);
 
+  // Mostrar aviso cuando se llega con ?ok=registro
+  const [showReg, setShowReg] = useState(false);
+
   const loadMe = async () => {
     try {
       const { data } = await api.get('/api/user');
       const next = { name: data.name || '', email: data.email || '' };
       setU(next);
       setInitialU(next);
-      // si tu API devuelve avatar_url, podrías mostrarla acá como preview inicial
-      // setAvatarPreview(data.avatar_url ?? null);
+      // if (data.avatar_url) setAvatarPreview(data.avatar_url);
     } catch (e) {
       if (e.response?.status === 401) router.push('/login');
     } finally {
@@ -52,6 +56,18 @@ export default function ProfilePage() {
       setInitialU(next);
     }
   }, [userCtx]);
+
+  // Detecta ?ok=registro, limpia la URL y auto-oculta el banner
+  useEffect(() => {
+    if (searchParams.get('ok') === 'registro') {
+      setShowReg(true);
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('ok');
+      router.replace(`${pathname}${params.toString() ? `?${params}` : ''}`, { scroll: false });
+      const t = setTimeout(() => setShowReg(false), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [searchParams, pathname, router]);
 
   const onFileChange = (e) => {
     const file = e.target.files?.[0] || null;
@@ -92,8 +108,7 @@ export default function ProfilePage() {
       toast.success('Perfil actualizado');
       setUser(prev => ({ ...(prev ?? {}), name: res.data.user.name, email: res.data.user.email }));
       setAvatarFile(null);
-      // si backend devuelve avatar_url, podrías guardar res.data.avatar_url
-      // setAvatarPreview(res.data.avatar_url ?? null);
+      // if (res.data.avatar_url) setAvatarPreview(res.data.avatar_url);
     } catch (e) {
       if (e.response?.status === 422) {
         const er = e.response.data.errors || {};
@@ -128,7 +143,6 @@ export default function ProfilePage() {
       toast.success('Contraseña actualizada');
       setPwd({ current_password:'', password:'', password_confirmation:'' });
 
-      // si decidís forzar re-login cuando cambian contraseña:
       if (data?.relogin) {
         localStorage.removeItem('token');
         setUser(null);
@@ -152,8 +166,14 @@ export default function ProfilePage() {
   if (loading) return <div className="p-6">Cargando…</div>;
 
   return (
-    <div className="mx-auto max-w-3xl p-6 space-y-8">
+    <div className="max-w-4xl mx-auto p-6 bg-white text-gray-900 rounded-2xl shadow">
       <section className="rounded-2xl bg-white p-6 shadow">
+        {showReg && (
+          <div className="mb-3 rounded-md border border-green-300 bg-green-50 px-3 py-2 text-green-800 text-sm">
+            Registro exitoso. ¡Bienvenido!
+          </div>
+        )}
+
         <h2 className="mb-4 text-xl font-semibold">Perfil</h2>
 
         {msg && <div className="mb-3 rounded bg-green-50 px-3 py-2 text-sm text-green-700">{msg}</div>}
