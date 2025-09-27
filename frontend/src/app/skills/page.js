@@ -78,7 +78,7 @@ export default function SkillsPage() {
         {TIPOS.map(t => (
           <button
             key={t}
-            className={`px-3 py-1 rounded ${tipo===t?'bg-blue-600 text-white':'bg-gray-200'}`}
+            className={`px-3 py-1 rounded ${tipo===t?'bg-blue-600 text-white':'bg-gray-400'}`}
             onClick={()=>setTipo(t)}
           >
             {LABELS[t]}
@@ -86,7 +86,7 @@ export default function SkillsPage() {
         ))}
       </div>
 
-      <form onSubmit={add} className="grid gap-2 rounded bg-white p-4 shadow">
+      <form onSubmit={add} className="grid gap-2 rounded bg-gray-400 p-4 shadow">
         <input
           className="rounded border p-2"
           placeholder="Nombre de la habilidad (p. ej., Java, Piano)"
@@ -94,7 +94,7 @@ export default function SkillsPage() {
           onChange={e=>setForm(s=>({...s, nombre:e.target.value}))}
         />
         <select
-          className="rounded border p-2"
+          className="bg-gray-500 rounded border p-2"
           value={form.nivel}
           onChange={e=>setForm(s=>({...s, nivel:e.target.value}))}
         >
@@ -120,7 +120,7 @@ export default function SkillsPage() {
         </button>
       </form>
 
-      <div className="rounded bg-white p-4 shadow">
+      <div className="rounded bg-gray-400 p-4 shadow">
         {loadingList ? 'Cargando…' : (
           list.length ? (
             <ul className="divide-y">
@@ -128,7 +128,7 @@ export default function SkillsPage() {
                 <li key={s.id} className="flex items-center justify-between py-2">
                   <div>
                     <div className="font-medium">{s.name}</div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-gray-400">
                       {LABELS[s.tipo]} {s.nivel ? `· ${s.nivel}` : ''} {s.estado === 'inactiva' ? '· inactiva' : ''}
                     </div>
                   </div>

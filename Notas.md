@@ -37,3 +37,5 @@ skillSwap/
 ### frame motion para animaciones 3D
 
 ### axios para solicitudes HTTP en JS
+
+### hot toast para notificaciones atractivas al usuario
