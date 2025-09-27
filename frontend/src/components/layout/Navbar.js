@@ -10,8 +10,8 @@ export default function Navbar() {
     <nav className="w-full bg-gray-900 text-white px-6 py-4">
       <ul className="flex flex-wrap justify-end items-center gap-4">
         <li><Link href="/">Inicio</Link></li>
-        <li><Link href="/search">Buscar</Link></li>
-        {user && <li><Link href="/skills">Mis habilidades</Link></li>}
+        <li><Link href="/search">Aprender Habilidad</Link></li>
+        {user && <li><Link href="/perfil/habilidades">Mis habilidades</Link></li>}
         <li><Link href="/faq">Preguntas frecuentes</Link></li>
 
         {user ? (
