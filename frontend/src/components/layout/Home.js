@@ -44,7 +44,7 @@ useEffect(() => {
   return (
     <div>
       <Header />
-      <Filter />
+      {/* <Filter /> */}
       <div className="h-screen flex items-center justify-center text-4xl">
         <div className="relative w-[400px] h-[400px] flex items-center justify-center">
 

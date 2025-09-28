@@ -2,9 +2,19 @@
 
 import { motion } from "framer-motion";
 import { useState } from "react";
+import Header from "../../components/layout/Header";
+import Image from "next/image";
 
 // app/faq/page.js
 export default function FAQPage() {
+
+    const npcsImages = [
+      "/people8bit/npc1.png",
+      "/people8bit/npc2.png",
+      "/people8bit/npc3.png",
+      "/people8bit/npc4.png",
+    ];
+
     const faqs = [
       {
         question: "¿Qué es SkillSwap?",
@@ -49,6 +59,8 @@ export default function FAQPage() {
     ];
 
     return (
+      <div>
+        <Header />
         <section className="bg-gray-50 min-h-screen py-20 px-6">
           <div style={{fontFamily: 'VT323'}} className="max-w-4xl mx-auto text-center mb-12">
             <motion.h2
@@ -83,6 +95,7 @@ export default function FAQPage() {
                 viewport={{ once: false, amount: 0.3 }}
                 className="bg-white shadow-lg rounded-2xl p-6 border border-gray-100"
               >
+                <Image src={npcsImages[index % npcsImages.length]} alt="Pregunta" width={40} height={40} />
                 <h3 className="text-xl font-semibold text-gray-800 mb-2">
                   {faq.question}
                 </h3>
@@ -91,6 +104,7 @@ export default function FAQPage() {
             ))}
           </div>
         </section>
+      </div>
       );
   }
   
