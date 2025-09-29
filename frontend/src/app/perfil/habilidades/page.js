@@ -9,7 +9,6 @@ import api from '../../../utils/axios'; // ojo la ruta desde /perfil/habilidades
 // DELETE /api/my-skills/:id
 
 const niveles = ['principiante', 'intermedio', 'avanzado'];
-const modalidades = ['online', 'presencial'];
 
 export default function HabilidadesPage() {
   const [tipo, setTipo] = useState('ofrecida'); // 'ofrecida' | 'deseada'
@@ -19,14 +18,13 @@ export default function HabilidadesPage() {
   const [form, setForm] = useState({
     nombre: '',
     nivel: 'principiante',
-    modalidad: 'online',
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState(null);
 
   // Edición
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({ nombre: '', nivel: 'principiante', modalidad: 'online' });
+  const [editForm, setEditForm] = useState({ nombre: '', nivel: 'principiante'});
   const [savingEdit, setSavingEdit] = useState(false);
 
   const load = async () => {
@@ -51,7 +49,7 @@ export default function HabilidadesPage() {
     setErr(null);
     try {
       await api.post('/api/my-skills', { ...form, tipo });
-      setForm({ nombre: '', nivel: 'principiante', modalidad: 'online' });
+      setForm({ nombre: '', nivel: 'principiante'});
       await load();
     } catch (e) {
       setErr(e?.response?.data?.message || 'No se pudo agregar');
@@ -64,14 +62,13 @@ export default function HabilidadesPage() {
     setEditingId(it.id);
     setEditForm({
       nombre: it.nombre || it.name || '',
-      nivel: it.nivel || 'principiante',
-      modalidad: it.modalidad || 'online',
+      nivel: it.nivel || 'principiante'
     });
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setEditForm({ nombre: '', nivel: 'principiante', modalidad: 'online' });
+    setEditForm({ nombre: '', nivel: 'principiante'});
   };
 
   const saveEdit = async (id) => {
@@ -81,7 +78,6 @@ export default function HabilidadesPage() {
       await api.put(`/api/my-skills/${id}`, {
         nombre: editForm.nombre,
         nivel: editForm.nivel,
-        modalidad: editForm.modalidad,
         tipo,
       });
       setEditingId(null);
@@ -142,13 +138,7 @@ export default function HabilidadesPage() {
         >
           {niveles.map(n => <option key={n} value={n}>{n}</option>)}
         </select>
-        <select
-          className="rounded border p-2"
-          value={form.modalidad}
-          onChange={e => setForm(s => ({ ...s, modalidad: e.target.value }))}
-        >
-          {modalidades.map(m => <option key={m} value={m}>{m}</option>)}
-        </select>
+
         <button
           disabled={saving}
           className={`mt-2 md:mt-0 rounded bg-blue-600 px-4 py-2 text-white ${saving ? 'opacity-60' : ''}`}
@@ -182,13 +172,7 @@ export default function HabilidadesPage() {
                   >
                     {niveles.map(n => <option key={n} value={n}>{n}</option>)}
                   </select>
-                  <select
-                    className="rounded border p-2"
-                    value={editForm.modalidad}
-                    onChange={e => setEditForm(s => ({ ...s, modalidad: e.target.value }))}
-                  >
-                    {modalidades.map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
+
                   <div className="mt-2 flex gap-2">
                     <button
                       onClick={() => saveEdit(it.id)}
@@ -211,7 +195,7 @@ export default function HabilidadesPage() {
                   <div>
                     <p className="font-medium">{it.nombre || it.name}</p>
                     <p className="text-sm text-gray-600">
-                      Nivel: {it.nivel} • Modalidad: {it.modalidad}
+                      Nivel: {it.nivel} • Modalidad: online
                     </p>
                   </div>
                   <div className="flex gap-2">

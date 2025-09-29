@@ -5,6 +5,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import api from '../../utils/axios';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
+import Header from '../../components/layout/Header';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -108,8 +109,10 @@ export default function ProfilePage() {
       toast.success('Perfil actualizado');
       setUser(prev => ({ ...(prev ?? {}), name: res.data.user.name, email: res.data.user.email }));
       setAvatarFile(null);
+      // console.log("SUCCESS", res.status, res.data);
       // if (res.data.avatar_url) setAvatarPreview(res.data.avatar_url);
     } catch (e) {
+      console.log("ERROR", e, e);
       if (e.response?.status === 422) {
         const er = e.response.data.errors || {};
         setFieldErrs(er);
@@ -133,6 +136,10 @@ export default function ProfilePage() {
     }
     if (pwd.password !== pwd.password_confirmation) {
       setPwdErr('La confirmación no coincide');
+      return;
+    }
+    if ((pwd.password === pwd.password_confirmation) && pwd.password.length < 8) {
+      setPwdErr('La contraseña debe tener al menos 8 caracteres.');
       return;
     }
 
@@ -166,100 +173,103 @@ export default function ProfilePage() {
   if (loading) return <div className="p-6">Cargando…</div>;
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white text-gray-900 rounded-2xl shadow">
-      <section className="rounded-2xl bg-white p-6 shadow">
-        {showReg && (
-          <div className="mb-3 rounded-md border border-green-300 bg-green-50 px-3 py-2 text-green-800 text-sm">
-            Registro exitoso. ¡Bienvenido!
-          </div>
-        )}
-
-        <h2 className="mb-4 text-xl font-semibold">Perfil</h2>
-
-        {msg && <div className="mb-3 rounded bg-green-50 px-3 py-2 text-sm text-green-700">{msg}</div>}
-        {err && <div className="mb-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
-
-        <form onSubmit={onSubmitProfile} className="grid gap-3">
-          <label className="text-sm">Nombre</label>
-          <input
-            className="rounded border p-2"
-            value={u.name}
-            onChange={(e) => setU(s => ({ ...s, name: e.target.value }))}
-          />
-          {fieldErrs.name && <p className="text-xs text-red-600">{fieldErrs.name[0]}</p>}
-
-          <label className="text-sm">Email</label>
-          <input
-            className="rounded border p-2"
-            value={u.email}
-            onChange={(e) => setU(s => ({ ...s, email: e.target.value }))}
-          />
-          {fieldErrs.email && <p className="text-xs text-red-600">{fieldErrs.email[0]}</p>}
-
-          <label className="text-sm">Avatar (opcional)</label>
-          <input type="file" accept="image/*" onChange={onFileChange} />
-          {avatarPreview && (
-            <img src={avatarPreview} alt="preview" className="mt-2 h-20 w-20 rounded-full object-cover border" />
+    <div>
+      <Header />
+      <div className="max-w-4xl mx-auto p-6 bg-white text-gray-900 rounded-2xl shadow">
+        <section className="rounded-2xl bg-white p-6 shadow">
+          {showReg && (
+            <div className="mb-3 rounded-md border border-green-300 bg-green-50 px-3 py-2 text-green-800 text-sm">
+              Registro exitoso. ¡Bienvenido!
+            </div>
           )}
-          {fieldErrs.avatar && <p className="text-xs text-red-600">{fieldErrs.avatar[0]}</p>}
 
-          <div className="mt-2 flex gap-2">
+          <h2 className="mb-4 text-xl font-semibold">Perfil</h2>
+
+          {msg && <div className="mb-3 rounded bg-green-50 px-3 py-2 text-sm text-green-700">{msg}</div>}
+          {err && <div className="mb-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+
+          <form onSubmit={onSubmitProfile} className="grid gap-3">
+            <label className="text-sm">Nombre</label>
+            <input
+              className="rounded border p-2"
+              value={u.name}
+              onChange={(e) => setU(s => ({ ...s, name: e.target.value }))}
+            />
+            {fieldErrs.name && <p className="text-xs text-red-600">{fieldErrs.name[0]}</p>}
+
+            <label className="text-sm">Email</label>
+            <input
+              className="rounded border p-2"
+              value={u.email}
+              onChange={(e) => setU(s => ({ ...s, email: e.target.value }))}
+            />
+            {fieldErrs.email && <p className="text-xs text-red-600">{fieldErrs.email[0]}</p>}
+
+            {/* <label className="text-sm">Avatar (opcional)</label>
+            <input type="file" accept="image/*" onChange={onFileChange} />
+            {avatarPreview && (
+              <img src={avatarPreview} alt="preview" className="mt-2 h-20 w-20 rounded-full object-cover border" />
+            )}
+            {fieldErrs.avatar && <p className="text-xs text-red-600">{fieldErrs.avatar[0]}</p>} */}
+
+            <div className="mt-2 flex gap-2">
+              <button
+                disabled={saving}
+                className={`rounded bg-blue-600 px-4 py-2 text-white ${saving ? 'opacity-60' : ''}`}
+              >
+                {saving ? 'Guardando…' : 'Guardar cambios'}
+              </button>
+              <button
+                type="button"
+                onClick={onRestore}
+                className="rounded bg-gray-200 px-4 py-2"
+              >
+                Restaurar
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <section className="rounded-2xl bg-white p-6 shadow">
+          <h2 className="mb-4 text-xl font-semibold">Cambiar contraseña</h2>
+
+          {pwdMsg && <div className="mb-3 rounded bg-green-50 px-3 py-2 text-sm text-green-700">{pwdMsg}</div>}
+          {pwdErr && <div className="mb-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{pwdErr}</div>}
+
+          <form onSubmit={onSubmitPassword} className="grid gap-3">
+            <label className="text-sm">Contraseña actual</label>
+            <input
+              type="password"
+              className="rounded border p-2"
+              value={pwd.current_password}
+              onChange={(e) => setPwd(s => ({ ...s, current_password: e.target.value }))}
+            />
+
+            <label className="text-sm">Nueva contraseña</label>
+            <input
+              type="password"
+              className="rounded border p-2"
+              value={pwd.password}
+              onChange={(e) => setPwd(s => ({ ...s, password: e.target.value }))}
+            />
+
+            <label className="text-sm">Confirmar nueva contraseña</label>
+            <input
+              type="password"
+              className="rounded border p-2"
+              value={pwd.password_confirmation}
+              onChange={(e) => setPwd(s => ({ ...s, password_confirmation: e.target.value }))}
+            />
+
             <button
-              disabled={saving}
-              className={`rounded bg-blue-600 px-4 py-2 text-white ${saving ? 'opacity-60' : ''}`}
+              disabled={savingPwd}
+              className={`mt-2 rounded bg-blue-600 px-4 py-2 text-white ${savingPwd ? 'opacity-60' : ''}`}
             >
-              {saving ? 'Guardando…' : 'Guardar cambios'}
+              {savingPwd ? 'Actualizando…' : 'Actualizar contraseña'}
             </button>
-            <button
-              type="button"
-              onClick={onRestore}
-              className="rounded bg-gray-200 px-4 py-2"
-            >
-              Restaurar
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <section className="rounded-2xl bg-white p-6 shadow">
-        <h2 className="mb-4 text-xl font-semibold">Cambiar contraseña</h2>
-
-        {pwdMsg && <div className="mb-3 rounded bg-green-50 px-3 py-2 text-sm text-green-700">{pwdMsg}</div>}
-        {pwdErr && <div className="mb-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{pwdErr}</div>}
-
-        <form onSubmit={onSubmitPassword} className="grid gap-3">
-          <label className="text-sm">Contraseña actual</label>
-          <input
-            type="password"
-            className="rounded border p-2"
-            value={pwd.current_password}
-            onChange={(e) => setPwd(s => ({ ...s, current_password: e.target.value }))}
-          />
-
-          <label className="text-sm">Nueva contraseña</label>
-          <input
-            type="password"
-            className="rounded border p-2"
-            value={pwd.password}
-            onChange={(e) => setPwd(s => ({ ...s, password: e.target.value }))}
-          />
-
-          <label className="text-sm">Confirmar nueva contraseña</label>
-          <input
-            type="password"
-            className="rounded border p-2"
-            value={pwd.password_confirmation}
-            onChange={(e) => setPwd(s => ({ ...s, password_confirmation: e.target.value }))}
-          />
-
-          <button
-            disabled={savingPwd}
-            className={`mt-2 rounded bg-blue-600 px-4 py-2 text-white ${savingPwd ? 'opacity-60' : ''}`}
-          >
-            {savingPwd ? 'Actualizando…' : 'Actualizar contraseña'}
-          </button>
-        </form>
-      </section>
+          </form>
+        </section>
+      </div>
     </div>
   );
 }

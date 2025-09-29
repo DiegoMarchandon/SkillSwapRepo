@@ -45,8 +45,8 @@ class ProfileController extends Controller
         $user->save();
 
         return response()->json([
-            'user' => $user->only(['id', 'name', 'email', 'avatar_path']),
-            'avatar_url' => $user->avatar_path ? url('storage/' . $user->avatar_path) : null,
+            'user' => $user->only(['id', 'name', 'email', 'avatar_path'])
+            // 'avatar_url' => $user->avatar_path ? url('storage/' . $user->avatar_path) : null,
         ]);
     }
 

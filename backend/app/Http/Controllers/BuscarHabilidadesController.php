@@ -17,7 +17,7 @@ class BuscarHabilidadesController extends Controller
         ]);
         $tipo = $data['tipo'] ?? 'ofrecida'; // por defecto: profesores (enseñan)
 
-        $rows = UsuarioHabilidad::with(['habilidad:id,nombre', 'user:id,name,avatar_path'])
+        $rows = UsuarioHabilidad::with(['habilidad:id,nombre', 'user:id,name'])
             ->where('tipo', $tipo)
             ->whereHas('habilidad', fn($q) => $q->where('nombre', 'like', '%' . $data['habilidad'] . '%'))
             ->orderBy('created_at', 'desc')
