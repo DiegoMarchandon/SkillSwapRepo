@@ -30,15 +30,15 @@ useEffect(() => {
   });
 
   const images = [
-    "/skillsPNGs/dancing.png",
-    "/skillsPNGs/guitar.png",
-    "/skillsPNGs/karaoke.png",
-    "/skillsPNGs/Literatura.png",
-    "/skillsPNGs/Magia.png",
-    "/skillsPNGs/Matematicas.png",
-    "/skillsPNGs/Programacion.png",
-    "/skillsPNGs/translate.png",
-    "/skillsPNGs/Veterinario.png"
+    "/skillsPNGs/canto8bits.png",
+    "/skillsPNGs/dancing8bits.png",
+    "/skillsPNGs/escritura8bits.png",
+    "/skillsPNGs/guitarra8bits.png",
+    "/skillsPNGs/idiomas8bits.png",
+    "/skillsPNGs/magia8bits.png",
+    "/skillsPNGs/mates8bits.png",
+    "/skillsPNGs/programacion8bits.png",
+    "/skillsPNGs/vet8bits.png"
   ];
 
   return (
@@ -46,10 +46,10 @@ useEffect(() => {
       <Header />
       {/* <Filter /> */}
       <div className="h-screen flex items-center justify-center text-4xl">
-        <div className="relative w-[400px] h-[400px] flex items-center justify-center">
+        <div className="relative w-[400px] h-[400px] flex items-center justify-center" style={{ transform: "rotateZ(30deg)" }}>
 
           {/* Texto central */}
-          <h1 style={{fontFamily: 'VT323',left: "50%",top: "50%",transform: "translate(-50%, -50%)"}}className="absolute z-10 text-9xl">
+          <h1 style={{fontFamily: 'VT323',left: "50%",top: "50%",transform: "translate(-50%, -50%) rotateZ(-30deg)"}}className="absolute z-10 text-9xl">
             SkillSwap
           </h1>
 
@@ -58,9 +58,13 @@ useEffect(() => {
             // Convertimos grados de rotateZ a radianes y sumamos al ángulo inicial
             const currentAngle = angle + (rotateZ.get() * Math.PI / 180);
             
+            const tiltAngle = 30 * (Math.PI / 180); // Ángulo de inclinación en radianes (30° en este caso)
+
             // Calculamos posición según radioX y radioY
             const currentX = Math.cos(currentAngle) * 225; // radiusX
             const currentY = Math.sin(currentAngle) * 150; // radiusY
+
+            const currentZ = Math.sin(tiltAngle) * Math.sin(currentAngle) * 150; // Simula profundidad
 
             return (
               <SkillCard

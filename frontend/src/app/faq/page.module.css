@@ -1,0 +1,22 @@
+.bubbleLeft::after {
+    content: '';
+    position: absolute;
+    top: 10%;
+    left: 0;
+    transform: translateY(-50%);
+    margin-left: -0.5rem;
+    border-top: 0.5rem solid transparent;
+    border-bottom: 0.5rem solid transparent;
+    border-right: 0.5rem solid #BFDBFE; /* blue-200 */
+  }
+  .bubbleRight::after {
+    content: '';
+    position: absolute;
+    top: 10%;
+    right: -1%;
+    transform: translateY(-50%);
+    margin-left: -0.5rem;
+    border-top: 0.5rem solid transparent;
+    border-bottom: 0.5rem solid transparent;
+    border-left: 0.5rem solid #A5F3FC; /* cyan-200 */
+  }

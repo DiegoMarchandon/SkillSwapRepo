@@ -10,7 +10,7 @@ import Image from "next/image";
 export default function SkillCard({skillPNG, className="", style={}, ...props }){
     return (
         <motion.div
-          className={`w-[60px] h-[60px] bg-[#8181B1] rounded-[5px] ${className}`}
+          className={`w-[60px] h-[60px] rounded-[5px] ${className}`}
           style={style}
           {...props}
           animate={{rotate:360}}

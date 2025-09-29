@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import Header from "../../components/layout/Header";
 import Image from "next/image";
+import styles from "./page.module.css"
 
 // app/faq/page.js
 export default function FAQPage() {
@@ -84,8 +85,9 @@ export default function FAQPage() {
             </motion.p>
           </div>
     
-          <div className="max-w-3xl mx-auto space-y-10">
+          <div className=" max-w-3xl mx-auto space-y-10">
             {faqs.map((faq, index) => (
+
               <motion.div
                 key={index}
                 initial={{ opacity: 0, y: 40 }}
@@ -93,14 +95,21 @@ export default function FAQPage() {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.8, delay: index * 0.2 }}
                 viewport={{ once: false, amount: 0.3 }}
-                className="bg-white shadow-lg rounded-2xl p-6 border border-gray-100"
+                className="relative bg-white shadow-lg rounded-2xl p-4 border border-gray-100"
               >
-                <Image src={npcsImages[index % npcsImages.length]} alt="Pregunta" width={40} height={40} />
-                <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                  {faq.question}
-                </h3>
-                <p className="text-gray-600">{faq.answer}</p>
+                <div className={`${styles.bubbleLeft} relative w-full mb-5 h-24 bg-blue-200`}>
+                  <Image src={npcsImages[index % npcsImages.length]} className="absolute bottom-2/3 right-2/2" alt="Pregunta" width={50} height={50} />
+                  <h3 className="text-xl  font-semibold text-gray-800 mb-2">
+                    {faq.question}
+                  </h3>
+                </div>
+
+                <div className={`${styles.bubbleRight} relative w-full h-24 bg-cyan-200`}>
+                  <Image src="/pet/BMO.png" className="rotate-y-180 absolute bottom-2/4 left-2/2" alt="Respuesta" width={60} height={60} />
+                  <p className="text-gray-600">{faq.answer}</p>
+                </div>
               </motion.div>
+
             ))}
           </div>
         </section>
