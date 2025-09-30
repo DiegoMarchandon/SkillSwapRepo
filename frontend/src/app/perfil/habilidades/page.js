@@ -141,7 +141,7 @@ export default function HabilidadesPage() {
 
         <button
           disabled={saving}
-          className={`mt-2 md:mt-0 rounded bg-blue-600 px-4 py-2 text-white ${saving ? 'opacity-60' : ''}`}
+          className={`mt-2 md:mt-0 rounded cursor-pointer bg-stone-800 px-4 py-2 text-white ${saving ? 'opacity-60' : ''}`}
         >
           {saving ? 'Agregando…' : 'Agregar'}
         </button>
@@ -201,13 +201,13 @@ export default function HabilidadesPage() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => startEdit(it)}
-                      className="rounded bg-yellow-500 px-3 py-1.5 text-white"
+                      className="rounded cursor-pointer bg-slate-500 px-3 py-1.5 text-white"
                     >
                       Editar
                     </button>
                     <button
                       onClick={() => removeSkill(it.id)}
-                      className="rounded bg-red-600 px-3 py-1.5 text-white"
+                      className="rounded cursor-pointer bg-red-800 px-3 py-1.5 text-white"
                     >
                       Eliminar
                     </button>

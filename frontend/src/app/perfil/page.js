@@ -215,14 +215,14 @@ export default function ProfilePage() {
             <div className="mt-2 flex gap-2">
               <button
                 disabled={saving}
-                className={`rounded bg-blue-600 px-4 py-2 text-white ${saving ? 'opacity-60' : ''}`}
+                className={`rounded cursor-pointer bg-slate-500 px-4 py-2 text-white ${saving ? 'opacity-60' : ''}`}
               >
                 {saving ? 'Guardando…' : 'Guardar cambios'}
               </button>
               <button
                 type="button"
                 onClick={onRestore}
-                className="rounded bg-gray-200 px-4 py-2"
+                className="rounded cursor-pointer bg-gray-200 px-4 py-2"
               >
                 Restaurar
               </button>
@@ -263,7 +263,7 @@ export default function ProfilePage() {
 
             <button
               disabled={savingPwd}
-              className={`mt-2 rounded bg-blue-600 px-4 py-2 text-white ${savingPwd ? 'opacity-60' : ''}`}
+              className={`mt-2 rounded cursor-pointer bg-slate-500 px-4 py-2 text-white ${savingPwd ? 'opacity-60' : ''}`}
             >
               {savingPwd ? 'Actualizando…' : 'Actualizar contraseña'}
             </button>

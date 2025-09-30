@@ -65,6 +65,16 @@ class MisHabilidadesController extends Controller
             return response()->json(['message' => 'Ya cargaste esa habilidad en esa modalidad'], 422);
         }
 
+        $incorporada = UsuarioHabilidad::where('user_id', $r->user()->id)
+        ->where('habilidad_id', $habId)
+        ->first();
+        // condicional para verificar que el usuario no cargue una habilidad incorporada
+        if($incorporada){
+            // almaceno si la habilidad se trata de una deseada u ofrecida
+            $naturaleza = $incorporada->tipo;
+            return response()->json(['message' => 'Error. Habilidad ya incorporada en '.$naturaleza.'.'], 422);
+        }
+
         $uh = UsuarioHabilidad::create([
             'user_id'      => $r->user()->id,
             'habilidad_id' => $habId,

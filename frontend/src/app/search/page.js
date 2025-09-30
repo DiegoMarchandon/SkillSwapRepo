@@ -29,7 +29,7 @@ export default function SearchPage() {
         Buscar {tipo === 'ofrecida' ? 'profesores' : 'estudiantes'}
       </h1>
 
-      <form onSubmit={onSubmit} className="flex flex-wrap items-center gap-2 rounded bg-linear-to-r from-cyan-500 to-cyan-700 p-4 shadow">
+      <form onSubmit={onSubmit} className="flex flex-wrap items-center gap-2 rounded bg-linear-to-r from-stone-200 to-gray-400 p-4 shadow">
         <input
           className="flex-1 rounded border p-2"
           placeholder="Habilidad (p. ej., Java, Guitarra)"
@@ -40,7 +40,7 @@ export default function SearchPage() {
           <option value="ofrecida">Profesores (enseñan)</option>
           <option value="deseada">Estudiantes (quieren aprender)</option>
         </select>
-        <button className="rounded bg-blue-600 px-4 py-2 text-white">Buscar</button>
+        <button className="rounded cursor-pointer bg-stone-800 px-4 py-2 text-white">Buscar</button>
       </form>
 
       <div className="rounded bg-white p-4 shadow">
