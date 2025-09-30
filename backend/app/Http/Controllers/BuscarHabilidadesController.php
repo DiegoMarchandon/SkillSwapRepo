@@ -5,21 +5,35 @@ namespace App\Http\Controllers;
 use App\Models\UsuarioHabilidad;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Auth; // <-- importar
 
 class BuscarHabilidadesController extends Controller
 {
-    // GET /api/buscar?habilidad=java&tipo=ofrecida|deseada
     public function __invoke(Request $r)
     {
         $data = $r->validate([
-            'habilidad' => ['required', 'string', 'max:100'],
+            'habilidad' => ['nullable', 'string', 'max:100'],
             'tipo'      => ['nullable', Rule::in(['ofrecida', 'deseada'])],
+            'nivel'     => ['nullable', Rule::in(['principiante', 'intermedio', 'avanzado'])],
         ]);
-        $tipo = $data['tipo'] ?? 'ofrecida'; // por defecto: profesores (enseñan)
+
+        $tipo = $data['tipo'] ?? 'ofrecida';
+
+        // activamos el guard 'sanctum' (opcional) y tomamos el user si vino token
+        Auth::shouldUse('sanctum');
+        $currentUser = Auth::user(); // null si no hay token válido
 
         $rows = UsuarioHabilidad::with(['habilidad:id,nombre', 'user:id,name'])
             ->where('tipo', $tipo)
-            ->whereHas('habilidad', fn($q) => $q->where('nombre', 'like', '%' . $data['habilidad'] . '%'))
+            ->when($currentUser, fn($q) => $q->where('user_id', '!=', $currentUser->id)) // excluirse
+            ->when(!empty($data['habilidad']), function ($q) use ($data) {
+                $q->whereHas(
+                    'habilidad',
+                    fn($qq) =>
+                    $qq->where('nombre', 'like', '%' . $data['habilidad'] . '%')
+                );
+            })
+            ->when(!empty($data['nivel']), fn($q) => $q->where('nivel', $data['nivel']))
             ->orderBy('created_at', 'desc')
             ->limit(50)
             ->get()
@@ -30,9 +44,8 @@ class BuscarHabilidadesController extends Controller
                     'nivel' => $uh->nivel,
                 ],
                 'user' => [
-                    'id'    => $uh->user->id,
-                    'name'  => $uh->user->name,
-                    'avatar_url' => $uh->user->avatar_path ? url('storage/' . $uh->user->avatar_path) : null,
+                    'id'   => $uh->user->id,
+                    'name' => $uh->user->name,
                 ],
             ]);
 
