@@ -30,7 +30,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/reservas', [ReservaController::class, 'store']);
     Route::patch('/reservas/{id}/cancelar', [ReservaController::class, 'cancelar']);
-
+    Route::get('/mis-reservas', [ReservaController::class, 'misReservas']);
 
     // Mis habilidades (CRUD)
     Route::get('/my-skills',                 [MisHabilidadesController::class, 'index']);

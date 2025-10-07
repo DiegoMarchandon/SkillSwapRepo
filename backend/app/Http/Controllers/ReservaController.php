@@ -70,4 +70,32 @@ class ReservaController extends Controller
 
         return response()->json(['ok' => true]);
     }
+
+    public function misReservas(Request $r)
+    {
+        $userId = $r->user()->id;
+
+        $items = \App\Models\Reserva::with([
+            'disponibilidad:id,inicio_utc,fin_utc,instructor_id',
+            'instructor:id,name,email'
+        ])
+            ->where('alumno_id', $userId)
+            ->orderByDesc('id')
+            ->get()
+            ->map(function ($res) {
+                return [
+                    'id'            => $res->id,
+                    'estado'        => $res->estado,
+                    'instructor'    => [
+                        'id'    => $res->instructor->id,
+                        'name'  => $res->instructor->name,
+                        'email' => $res->instructor->email,
+                    ],
+                    'inicio_utc'    => $res->disponibilidad->inicio_utc->toISOString(),
+                    'fin_utc'       => $res->disponibilidad->fin_utc->toISOString(),
+                ];
+            });
+
+        return response()->json(['data' => $items]);
+    }
 }
