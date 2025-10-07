@@ -20,5 +20,7 @@ class DatabaseSeeder extends Seeder
             'email' => 'test@example.com',
         ]); */
         $this->call([HabilidadSeeder::class]);
+
+        $this->call([\Database\Seeders\DisponibilidadesDemoSeeder::class]);
     }
 }

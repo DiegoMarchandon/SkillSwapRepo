@@ -14,17 +14,18 @@ export default function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(null);
     try {
-      // SIN csrf-cookie, es por token
-      const res = await api.post('/api/login', { email, password });
-      const { user, token } = res.data;
+      // SIN /api delante (axios.baseURL ya lo tiene)
+      const res = await api.post('/login', { email, password });
+      const token = res.data?.token ?? res.data?.access_token ?? res.data?.data?.token;
+      const user  = res.data?.user ?? res.data?.data?.user ?? null;
+
+      if (!token) throw new Error('No se recibió el token.');
       localStorage.setItem('token', token);
-      login(user);
-      router.push('/');
+      login(user, { redirect: true }); // setea usuario y redirige al home
     } catch (err) {
-      if (err.response?.status === 422) setError(err.response.data.errors);
-      else if (err.response?.status === 401) setError('Credenciales inválidas');
-      else setError(err.message);
+      setError(err); // el LoginForm lo convierte a array; no crashea
     }
   };
 

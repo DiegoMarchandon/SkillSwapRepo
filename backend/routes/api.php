@@ -8,8 +8,14 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\MisHabilidadesController;
 use App\Http\Controllers\BuscarHabilidadesController;
 
+use App\Http\Controllers\CalendarioController;
+use App\Http\Controllers\ReservaController;
+
+
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login',    [AuthController::class, 'login']);
+
+
 
 Route::middleware('auth:sanctum')->group(function () {
     // Sesión / usuario
@@ -19,6 +25,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // Perfil
     Route::put('/profile',  [ProfileController::class, 'update']);
     Route::put('/password', [ProfileController::class, 'updatePassword']);
+
+    Route::get('/instructores/{id}/calendario', [CalendarioController::class, 'show']);
+
+    Route::post('/reservas', [ReservaController::class, 'store']);
+    Route::patch('/reservas/{id}/cancelar', [ReservaController::class, 'cancelar']);
+
 
     // Mis habilidades (CRUD)
     Route::get('/my-skills',                 [MisHabilidadesController::class, 'index']);
