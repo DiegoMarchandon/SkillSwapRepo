@@ -16,13 +16,20 @@ class Disponibilidad extends Model
         'inicio_utc',
         'fin_utc',
         'estado',
-        'nota'
+        'nota',
+        'habilidad_id'
     ];
 
     protected $casts = [
         'inicio_utc' => 'datetime',
         'fin_utc'    => 'datetime',
     ];
+
+    public function habilidad()
+    {
+        return $this->belongsTo(\App\Models\Habilidad::class, 'habilidad_id');
+    }
+
 
     public function instructor()
     {

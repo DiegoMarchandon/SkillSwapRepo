@@ -10,6 +10,8 @@ use App\Http\Controllers\BuscarHabilidadesController;
 use App\Http\Controllers\ProfesoresController;
 use App\Http\Controllers\CalendarioController;
 use App\Http\Controllers\ReservaController;
+use App\Http\Controllers\DisponibilidadController;
+
 
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -40,6 +42,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // búsqueda de profesores
     Route::get('/profesores', [ProfesoresController::class, 'getAllTeachers']);
     Route::get('/profesores/buscar', [ProfesoresController::class, 'searchTeachers']);
+
+    Route::post('/instructores/{id}/disponibilidades', [DisponibilidadController::class, 'store']);
 });
 
 // Búsqueda pública de habilidades (profes que enseñan o gente que quiere aprender)

@@ -13,7 +13,7 @@ import {
 import { es } from 'date-fns/locale';
 import { toLocal, ymdLocal } from '../../utils/time';
 
-export default function InstructorCalendar({ instructorId }) {
+export default function InstructorCalendar({ instructorId, skillId }) {
   const [month, setMonth] = useState(startOfMonth(new Date()));
   const [loading, setLoading] = useState(false);
   const [slots, setSlots] = useState([]);
@@ -30,20 +30,24 @@ export default function InstructorCalendar({ instructorId }) {
   async function loadSlots() {
     setLoading(true);
     try {
-      const qs = new URLSearchParams({
+      const params = {
         from: range.from.toISOString(),
         to:   range.to.toISOString(),
-      }).toString();
+      };
+      if (skillId) params.skill_id = String(skillId); // ← filtrar por habilidad si viene
+
+      const qs = new URLSearchParams(params).toString();
       const { data } = await api.get(`/instructores/${instructorId}/calendario?` + qs);
       setSlots(data?.data || []);
-    }catch(err){
+    } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => { loadSlots(); }, [instructorId, range.from, range.to]);
+  // ← ahora también escucha cambios de skillId
+  useEffect(() => { loadSlots(); }, [instructorId, range.from, range.to, skillId]);
 
   const byDay = useMemo(() => {
     const map = {};
@@ -64,7 +68,7 @@ export default function InstructorCalendar({ instructorId }) {
     try {
       await api.post('/reservas', { disponibilidad_id });
       alert('¡Reserva confirmada!');
-      await loadSlots(); // refrescar disponibilidad
+      await loadSlots(); // refrescar disponibilidad (respeta el skillId si está)
     } catch (e) {
       const msg =
         e?.response?.data?.message ||

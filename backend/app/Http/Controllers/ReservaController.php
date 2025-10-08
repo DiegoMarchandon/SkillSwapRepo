@@ -16,11 +16,13 @@ class ReservaController extends Controller
         $data = $r->validate([
             'disponibilidad_id' => ['required', 'integer', 'exists:disponibilidades,id'],
         ]);
+
         $userId = $r->user()->id;
 
         $reserva = DB::transaction(function () use ($data, $userId) {
             $slot = Disponibilidad::where('id', $data['disponibilidad_id'])
-                ->lockForUpdate()->firstOrFail();
+                ->lockForUpdate()
+                ->firstOrFail();
 
             if ($slot->estado !== 'libre') {
                 throw ValidationException::withMessages(['disponibilidad_id' => 'El horario ya no está disponible.']);
@@ -39,6 +41,7 @@ class ReservaController extends Controller
                 'instructor_id'     => $slot->instructor_id,
                 'alumno_id'         => $userId,
                 'estado'            => 'confirmada',
+                'habilidad_id'      => $slot->habilidad_id,
                 'enlace_reunion'    => (string) Str::uuid(),
             ]);
         });
@@ -76,23 +79,26 @@ class ReservaController extends Controller
         $userId = $r->user()->id;
 
         $items = \App\Models\Reserva::with([
-            'disponibilidad:id,inicio_utc,fin_utc,instructor_id',
-            'instructor:id,name,email'
+            'disponibilidad:id,inicio_utc,fin_utc,instructor_id,habilidad_id',
+            'instructor:id,name,email',
+            // 'habilidad:id,nombre' // ← si querés devolver nombre de la habilidad (teniendo relación en el modelo)
         ])
             ->where('alumno_id', $userId)
             ->orderByDesc('id')
             ->get()
             ->map(function ($res) {
                 return [
-                    'id'            => $res->id,
-                    'estado'        => $res->estado,
-                    'instructor'    => [
+                    'id'         => $res->id,
+                    'estado'     => $res->estado,
+                    'instructor' => [
                         'id'    => $res->instructor->id,
                         'name'  => $res->instructor->name,
                         'email' => $res->instructor->email,
                     ],
-                    'inicio_utc'    => $res->disponibilidad->inicio_utc->toISOString(),
-                    'fin_utc'       => $res->disponibilidad->fin_utc->toISOString(),
+                    'inicio_utc' => $res->disponibilidad->inicio_utc->toISOString(),
+                    'fin_utc'    => $res->disponibilidad->fin_utc->toISOString(),
+                    'habilidad_id' => $res->disponibilidad->habilidad_id, // útil para la UI
+                    // 'habilidad_nombre' => $res->habilidad?->nombre ?? null, // si cargás la relación
                 ];
             });
 
