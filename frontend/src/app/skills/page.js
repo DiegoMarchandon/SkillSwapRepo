@@ -27,7 +27,7 @@ export default function SkillsPage() {
   const load = async (t = tipo) => {
     setLoadingList(true);
     try {
-      const { data } = await api.get('/api/my-skills', { params: { tipo: t } });
+      const { data } = await api.get('/my-skills', { params: { tipo: t } });
       setList(data);
     } catch (e) {
       // opcional: toast.error('No se pudo cargar');
@@ -44,7 +44,7 @@ export default function SkillsPage() {
     if (!form.nombre.trim()) { toast.error('Ingresá una habilidad'); return; }
     setBusy(true);
     try {
-      const { data } = await api.post('/api/my-skills', {
+      const { data } = await api.post('/my-skills', {
         nombre: form.nombre.trim(),
         tipo,
         nivel: form.nivel || null,

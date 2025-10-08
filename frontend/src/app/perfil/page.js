@@ -36,7 +36,7 @@ export default function ProfilePage() {
 
   const loadMe = async () => {
     try {
-      const { data } = await api.get('/api/user');
+      const { data } = await api.get('/user');
       const next = { name: data.name || '', email: data.email || '' };
       setU(next);
       setInitialU(next);
@@ -100,9 +100,9 @@ export default function ProfilePage() {
         form.append('name', u.name);
         form.append('email', u.email);
         form.append('avatar', avatarFile);
-        res = await api.put('/api/profile', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+        res = await api.put('/profile', form, { headers: { 'Content-Type': 'multipart/form-data' } });
       } else {
-        res = await api.put('/api/profile', { name: u.name, email: u.email });
+        res = await api.put('/profile', { name: u.name, email: u.email });
       }
 
       setMsg('Perfil actualizado');
@@ -145,7 +145,7 @@ export default function ProfilePage() {
 
     setSavingPwd(true);
     try {
-      const { data } = await api.put('/api/password', pwd);
+      const { data } = await api.put('/password', pwd);
       setPwdMsg('Contraseña actualizada');
       toast.success('Contraseña actualizada');
       setPwd({ current_password:'', password:'', password_confirmation:'' });

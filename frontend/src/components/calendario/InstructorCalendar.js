@@ -36,6 +36,8 @@ export default function InstructorCalendar({ instructorId }) {
       }).toString();
       const { data } = await api.get(`/instructores/${instructorId}/calendario?` + qs);
       setSlots(data?.data || []);
+    }catch(err){
+      console.error(err);
     } finally {
       setLoading(false);
     }

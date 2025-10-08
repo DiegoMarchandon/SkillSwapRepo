@@ -20,7 +20,7 @@ export default function SearchPage() {
     setErr(null);
     try {
       const params = { habilidad: term.trim() || undefined, tipo, nivel: nivel || undefined };
-      const { data } = await api.get('/api/buscar', { params });
+      const { data } = await api.get('/buscar', { params });
       setResults(data);
     } catch (error) {
       setErr('No se pudieron obtener resultados.');

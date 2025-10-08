@@ -7,7 +7,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\MisHabilidadesController;
 use App\Http\Controllers\BuscarHabilidadesController;
-
+use App\Http\Controllers\ProfesoresController;
 use App\Http\Controllers\CalendarioController;
 use App\Http\Controllers\ReservaController;
 
@@ -37,9 +37,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/my-skills',                 [MisHabilidadesController::class, 'store']);
     Route::put('/my-skills/{skill}',         [MisHabilidadesController::class, 'update']);
     Route::delete('/my-skills/{skill}',         [MisHabilidadesController::class, 'destroy']);
+    // búsqueda de profesores
+    Route::get('/profesores', [ProfesoresController::class, 'getAllTeachers']);
+    Route::get('/profesores/buscar', [ProfesoresController::class, 'searchTeachers']);
 });
 
 // Búsqueda pública de habilidades (profes que enseñan o gente que quiere aprender)
 Route::get('/buscar', BuscarHabilidadesController::class); // ?habilidad=java&modo=teach|learn
+
 
 Route::get('/health', fn() => response()->json(['ok' => true]));

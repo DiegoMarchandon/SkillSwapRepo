@@ -50,4 +50,53 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    /**
+     * Relación con las habilidades del usuario
+     */
+    public function habilidades()
+    {
+        return $this->hasMany(UsuarioHabilidad::class, 'user_id');
+    }
+
+    /**
+     * Obtener solo habilidades ofrecidas y activas
+     */
+    public function habilidadesOfrecidas()
+    {
+        return $this->hasMany(UsuarioHabilidad::class, 'user_id')
+                    ->where('tipo', 'ofrecida')
+                    ->where('estado', 'activa');
+    }
+
+    /**
+     * Favoritos que el usuario ha agregado
+     */
+    public function favoritos()
+    {
+        return $this->hasMany(Favorito::class, 'user_id');
+    }
+
+    /**
+     * Profesores que el usuario tiene como favoritos
+     */
+    public function profesoresFavoritos()
+    {
+        return $this->hasManyThrough(
+            User::class,
+            Favorito::class,
+            'user_id', // Foreign key on Favoritos table
+            'id', // Foreign key on Users table (profesor)
+            'id', // Local key on Users table
+            'profesor_id' // Local key on Favoritos table
+        );
+    }
+
+    /**
+     * Veces que este usuario ha sido marcado como favorito (como profesor)
+     */
+    public function favoritosRecibidos()
+    {
+        return $this->hasMany(Favorito::class, 'profesor_id');
+    }
 }

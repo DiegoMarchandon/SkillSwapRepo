@@ -31,7 +31,7 @@ export default function HabilidadesPage() {
     setLoading(true);
     setErr(null);
     try {
-      const { data } = await api.get('/api/my-skills', { params: { tipo } });
+      const { data } = await api.get('/my-skills', { params: { tipo } });
       setItems(Array.isArray(data) ? data : (data?.data || []));
     } catch {
       setErr('No se pudieron cargar las habilidades');
@@ -48,7 +48,7 @@ export default function HabilidadesPage() {
     setSaving(true);
     setErr(null);
     try {
-      await api.post('/api/my-skills', { ...form, tipo });
+      await api.post('/my-skills', { ...form, tipo });
       setForm({ nombre: '', nivel: 'principiante'});
       await load();
     } catch (e) {

@@ -21,7 +21,7 @@ export default function RegisterPage() {
 
     try {
       // TOKEN-BASED (sin CSRF cookie)
-      const res = await api.post('/api/register', {
+      const res = await api.post('/register', {
         name,
         email,
         password,
