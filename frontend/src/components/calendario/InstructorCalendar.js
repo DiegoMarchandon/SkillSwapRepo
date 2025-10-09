@@ -1,52 +1,41 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import api from '../../utils/axios';
-import {
-  addMonths,
-  endOfMonth,
-  format,
-  startOfMonth,
-  startOfWeek,
-  addDays,
-  isSameMonth
-} from 'date-fns';
+import { addMonths, endOfMonth, format, startOfMonth, startOfWeek, addDays, isSameMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toLocal, ymdLocal } from '../../utils/time';
 
 export default function InstructorCalendar({ instructorId, skillId }) {
+  const router = useRouter();
   const [month, setMonth] = useState(startOfMonth(new Date()));
   const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(null);
   const [slots, setSlots] = useState([]);
 
   const range = useMemo(() => {
     const from = startOfMonth(month);
     const to = endOfMonth(month);
     return {
-      from: new Date(from.getTime() - 7 * 24 * 3600 * 1000), // 1 semana antes
-      to:   new Date(to.getTime()   + 7 * 24 * 3600 * 1000), // 1 semana después
+      from: new Date(from.getTime() - 7 * 24 * 3600 * 1000),
+      to:   new Date(to.getTime()   + 7 * 24 * 3600 * 1000),
     };
   }, [month]);
 
   async function loadSlots() {
     setLoading(true);
     try {
-      const params = {
-        from: range.from.toISOString(),
-        to:   range.to.toISOString(),
-      };
-      if (skillId) params.skill_id = String(skillId); // ← filtrar por habilidad si viene
-
+      const params = { from: range.from.toISOString(), to: range.to.toISOString() };
+      if (skillId) {
+        params.skill_id = String(skillId);
+        params.usuario_habilidad_id = String(skillId);
+      }
       const qs = new URLSearchParams(params).toString();
       const { data } = await api.get(`/instructores/${instructorId}/calendario?` + qs);
       setSlots(data?.data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }
 
-  // ← ahora también escucha cambios de skillId
   useEffect(() => { loadSlots(); }, [instructorId, range.from, range.to, skillId]);
 
   const byDay = useMemo(() => {
@@ -56,25 +45,24 @@ export default function InstructorCalendar({ instructorId, skillId }) {
       if (!map[key]) map[key] = [];
       map[key].push(s);
     }
-    Object.values(map).forEach((list) =>
-      list.sort((a, b) => a.inicio_utc.localeCompare(b.inicio_utc))
-    );
+    Object.values(map).forEach((list) => list.sort((a, b) => a.inicio_utc.localeCompare(b.inicio_utc)));
     return map;
   }, [slots]);
 
-  // ---- reservar slot
   async function reservar(disponibilidad_id) {
     if (!confirm('¿Confirmar reserva de este horario?')) return;
+    setSending(disponibilidad_id);
     try {
       await api.post('/reservas', { disponibilidad_id });
-      alert('¡Reserva confirmada!');
-      await loadSlots(); // refrescar disponibilidad (respeta el skillId si está)
+      router.push('/mi/reservas?ok=1'); // redirigir al listado
     } catch (e) {
-      const msg =
-        e?.response?.data?.message ||
-        e?.response?.data?.errors?.disponibilidad_id?.[0] ||
-        'No se pudo reservar.';
+      const msg = e?.response?.data?.message
+        || e?.response?.data?.errors?.disponibilidad_id?.[0]
+        || 'No se pudo reservar.';
       alert(msg);
+      await loadSlots(); // por si cambió el estado del slot
+    } finally {
+      setSending(null);
     }
   }
 
@@ -111,30 +99,21 @@ export default function InstructorCalendar({ instructorId, skillId }) {
             const list = byDay[key] || [];
             const inMonth = isSameMonth(d, month);
             return (
-              <div
-                key={idx}
-                className={`min-h-[120px] border rounded-xl p-2 flex flex-col gap-2 ${
-                  inMonth ? 'bg-gray-50 dark:bg-gray-800/60' : 'bg-gray-100/50 dark:bg-gray-800/20 text-gray-400'
-                }`}
-              >
+              <div key={idx} className={`min-h-[120px] border rounded-xl p-2 flex flex-col gap-2 ${inMonth ? 'bg-gray-50 dark:bg-gray-800/60' : 'bg-gray-100/50 dark:bg-gray-800/20 text-gray-400'}`}>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold">{format(d, 'd')}</span>
                   {inMonth && list.length > 0 && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-600 text-white">
-                      {list.length} slot{list.length > 1 ? 's' : ''}
-                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-600 text-white">{list.length} slot{list.length > 1 ? 's' : ''}</span>
                   )}
                 </div>
-
                 <div className="flex-1 flex flex-col gap-1 overflow-auto">
                   {list.length === 0 && <span className="text-xs text-gray-400">—</span>}
-
                   {list.map((s) => {
                     const libre = s.estado === 'libre';
                     return (
                       <button
                         key={s.id}
-                        disabled={!libre}
+                        disabled={!libre || sending === s.id}
                         onClick={() => reservar(s.id)}
                         className={`w-full text-left text-xs rounded-lg px-2 py-1 border transition ${
                           libre
@@ -156,14 +135,5 @@ export default function InstructorCalendar({ instructorId, skillId }) {
     );
   }
 
-  return (
-    <section className="space-y-4">
-      <Header />
-      {loading ? (
-        <div className="p-8 text-center text-gray-500">Cargando calendario…</div>
-      ) : (
-        <Grid />
-      )}
-    </section>
-  );
+  return <section className="space-y-4">{loading ? <div className="p-8 text-center text-gray-500">Cargando calendario…</div> : (<><Header /><Grid /></>)}</section>;
 }

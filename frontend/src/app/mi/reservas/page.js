@@ -2,10 +2,14 @@
 import { useEffect, useState, useMemo } from 'react';
 import api from '../../../utils/axios';
 import { toLocal } from '../../../utils/time';
+import { useSearchParams } from 'next/navigation';
+
 
 export default function MisReservasPage() {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
+  const search = useSearchParams();
+  const ok = search.get('ok') === '1';
 
   async function load() {
     setLoading(true);
@@ -34,7 +38,11 @@ export default function MisReservasPage() {
   return (
     <main className="max-w-5xl mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-4">Mis reservas</h1>
-
+      {ok && (
+        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-800 px-3 py-2 text-sm">
+          ¡Reserva confirmada!
+        </div>
+      )}
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow overflow-hidden">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-100 dark:bg-gray-800/60 text-left">
