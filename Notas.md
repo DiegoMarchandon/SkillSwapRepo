@@ -6,6 +6,7 @@ skillSwap/
 │   ├── routes/
 │   ├── database/
 │   ├── public/
+│   └── server.js               # Archivo Node.js para manejar el signaling de WebRTC
 │   └── ...
 │
 ├── frontend/               # Proyecto Next.js 15 (con React dentro)
@@ -51,9 +52,57 @@ Librería moderna y modular para manipular fechas en JavaScript, tanto en navega
 ### date-fns-tz 
 extensión de date-fns que agrega soporte para zonas horarias, usando la API `Intl` del navegador o Node.js.
 
+# servicio de videollamadas.
+Objetivo: tener control total del monitoreo y auto-hosting.
 
-## sobre carpeta coturn
+## dependencias para WebRTC
+WebRTC permite la comunicación P2P entre navegadores, pero no define cómo los clientes se descubren ni cómo intercambian la información necesaria para conectarse(SDP,ICE candidates, Etc.) para eso necesitamos Socket.io
+
+### métricas de WebRTC
+en webrtc/page.js, además de ver las cámaras y conectarnos al servidor de signaling, vamos a ver las métricas. Tanto para el análisis técnico como para evidencia objetiva frente a incidencias. 
+
+
+### carpeta coturn
 no forma parte del código de mi aplicación, sino que es un servicio de red independiente, como una base de datos.
 servidor TURN/STUN. 
 - Debe correr en su propio servidor o contenedor.
 - O en la máquina local (si estamos probando).
+
+### demás tependencias 
+- WSL2: instala Ubuntu por defecto. Es necesario debido a que Docker Desktop no ejecuta contenedores directamente sobre Windows, sino dentro de un entorno Linux ligero. (Docker usa tecnologías propias de Linux y corre contenedores Linux).
+- Docker Desktop: es la forma moderna y recomendada de desplegar coturn y servicios relacionados con WebRTC.
+- Socket.io: servidor de signaling. Ejemplo:
+
+[Cliente A] ──> Socket.IO ──┐   
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; │   
+[Cliente B] <── Socket.IO ──┘
+
+1. Cliente A crea una oferta (SDP)
+2. La envía al servidor vía Socket.IO
+3. El servidor la reenvía a Cliente B
+4. Cliente B responde con su SDP
+5. Ambos intercambian ICE candidates
+6. Se establece la conexión P2P
+
+> instalación: `npm install socket.io` --> en /backend 
+
+- Socket.io-client: librería que se conecta al servidor socket.io (que creamos antes en Laravel) desde el navegador.
+> instalación: `npm install socket.io-client` --> en /frontend
+
+### backend/server.js
+Servidor Socket.io independiente que escuchará en el puerto 4000.
+
+### frontend/webrtc/page.js
+- Se conecta al servidor de signaling que levantaste en Laravel (localhost:4000).
+- Usa navigator.mediaDevices.getUserMedia para mostrar el video local.
+- Envía y recibe offer, answer y ICE candidates por Socket.io.
+- Si abrís dos pestañas de localhost:3000/webrtc:
+- En una hacé clic en “Iniciar llamada”.
+- En la otra no toques nada: se va a conectar automáticamente.
+- Vas a ver tu cámara local y el video remoto.
+
+**pendiente:** 
+- pedir diagrama visual simple de cómo interactúan webRTC, Docker Desktop, WSL2, socket.io y mi contenedor coturn de PC.
+- "Una vez que pueda montar por completo mi servicio de videollamadas, debo de convencer a mi compañero de proyecto de que elegí la opción más viable, "fácil" de entre todas las que había, y que implica descargar menos cosas para poder montar un servicio de videollamadas del que tengamos control absoluto. Pero al descargar tantas cosas (WSL2, Docker Desktop, socket.io, etc) posiblemente desconfíe Podrías ayudarme a explicarle  la importancia de cada una de las tecnologías que instalamos, cómo se relacionan y porqué resultó la alternativa más viable y liviana de entre las opciones que me presentaste para montar todo de cero?"
+
+- mi idea con las métricas en cuestión es que queden almacenadas una vez que la videollamada finalice para, en caso de que haya habido alguna eventualidad en medio ( se le corte la llamada a la persona que dicta la clase) la persona estudiante pueda "reclamar" por esa desconexión y haya una forma de verificar la causa y el culpable de esa interrupción. 
