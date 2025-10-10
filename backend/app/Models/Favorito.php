@@ -15,7 +15,6 @@ class Favorito extends Model
         'user_id',
         'profesor_id', 
         'usuario_habilidad_id',
-        'reseña_id'
     ];
 
     protected $casts = [

@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Favorito;
 use App\Models\User;
+use App\Models\Favorito;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -16,15 +16,28 @@ class FavoriteController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        
         try {
+            // Debug: verificar si el modelo existe
+        if (!class_exists('App\Models\Favorito')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Modelo Favorito no encontrado'
+            ], 500);
+        }
+         // Debug: probar una consulta simple
+         $test = \App\Models\Favorito::first();
+         // Si esto falla, el problema es el modelo
+         
             $request->validate([
                 'profesor_id' => 'required|exists:users,id',
                 'usuario_habilidad_id' => 'required|exists:usuario_habilidad,id',
-                'reseña_id' => 'nullable|exists:reseñas,id'
             ]);
 
             // Verificar si ya existe el favorito
-            $existingFavorite = Favorito::where('user_id', auth()->id());
+            $existingFavorite = Favorito::where('user_id', Auth::id())
+            ->where('profesor_id', $request->profesor_id)
+            ->first();
 
             if ($existingFavorite) {
                 return response()->json([
@@ -34,10 +47,9 @@ class FavoriteController extends Controller
             }
 
             $favorite = Favorito::create([
-                'user_id' => auth()->id(),
+                'user_id' => Auth::id(),
                 'profesor_id' => $request->profesor_id,
                 'usuario_habilidad_id' => $request->usuario_habilidad_id,
-                'reseña_id' => $request->reseña_id
             ]);
 
             return response()->json([
@@ -65,7 +77,7 @@ class FavoriteController extends Controller
                 'profesor_id' => 'required|exists:users,id'
             ]);
 
-            $favorite = Favorito::where('user_id', auth()->id())
+            $favorite = Favorito::where('user_id', Auth::id())
                 ->where('profesor_id', $request->profesor_id)
                 ->first();
 
@@ -102,7 +114,7 @@ class FavoriteController extends Controller
                 'teacher:id,name,email',
                 'teacher.habilidadesOfrecidas.habilidad'
             ])
-            ->where('user_id', auth()->id())
+            ->where('user_id', Auth::id())
             ->get()
             ->map(function($favorite) {
                 return [
@@ -137,7 +149,7 @@ class FavoriteController extends Controller
     public function checkFavorite($profesorId): JsonResponse
     {
         try {
-            $isFavorite = Favorito::where('user_id', auth()->id())
+            $isFavorite = Favorito::where('user_id', Auth::id())
                 ->where('profesor_id', $profesorId)
                 ->exists();
 

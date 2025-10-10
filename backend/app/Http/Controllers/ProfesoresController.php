@@ -7,6 +7,8 @@ use App\Models\Habilidad;
 use App\Models\Favorito;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class ProfesoresController extends Controller
 {
@@ -38,6 +40,7 @@ class ProfesoresController extends Controller
                           ->orWhere('email', 'LIKE', "%{$searchTerm}%");
                 })
                 ->get()
+                ->where('id', '!=', Auth::id()) // para excluir al usuario actual
                 ->map(function($user) {
                     return [
                         'id' => $user->id,
@@ -51,6 +54,8 @@ class ProfesoresController extends Controller
                                 'type' => $habilidad->tipo
                             ];
                         })->toArray(),
+                        'isFavorite' => Favorito::where('user_id', Auth::id())->where('profesor_id', $user->id)->exists(),
+                        'favorites_count' => Favorito::where('profesor_id', $user->id)->count(),
                         'has_skills' => $user->habilidades->count() > 0
                     ];
                 })
@@ -89,13 +94,28 @@ class ProfesoresController extends Controller
                           ->where('estado', 'activa');
                 })
                 ->get()
+                ->where('id', '!=', Auth::id()) //para excluir al usuario actual
                 ->map(function($user) {
+
+                    // DEBUG - AGREGAR ESTAS LÍNEAS:
+                // $userId = Auth::id();
+                // \Log::info("User ID: $userId, Profesor ID: {$user->id}");
+                
+                // $isFavorite = Favorito::where('user_id', $userId)
+                //     ->where('profesor_id', $user->id)
+                //     ->exists();
+
+                // \Log::info("isFavorite: " . ($isFavorite ? 'true' : 'false'));
+                // FIN DEBUG
+
                     return [
                         'id' => $user->id,
                         'name' => $user->name,
                         'email' => $user->email,
                         'skills' => $user->habilidades->map(function($habilidad) {
-                            return $habilidad->habilidad->nombre;
+                            return ['name' =>$habilidad->habilidad->nombre,
+                                'usuario_habilidad_id' => $habilidad->id
+                        ];
                         })->toArray(),
                         'skills_details' => $user->habilidades->map(function($habilidad) {
                             return [
@@ -104,7 +124,9 @@ class ProfesoresController extends Controller
                                 'level' => $habilidad->nivel,
                                 'type' => $habilidad->tipo
                             ];
-                        })->toArray()
+                        })->toArray(),
+                        'isFavorite' => Favorito::where('user_id', Auth::id())->where('profesor_id', $user->id)->exists(),
+                        'favorites_count' => Favorito::where('profesor_id', $user->id)->count()
                     ];
                 });
 
@@ -134,10 +156,9 @@ public function addToFavorites(Request $request)
         ]);
 
         $favorite = Favorito::create([
-            'user_id' => auth()->id(),
+            'user_id' => Auth::id(),
             'profesor_id' => $request->teacher_id,
             'usuario_habilidad_id' => $request->usuario_habilidad_id,
-            'reseña_id' => $request->reseña_id // opcional si no hay reseña
         ]);
 
         return response()->json([
@@ -157,7 +178,7 @@ public function addToFavorites(Request $request)
 public function removeFromFavorites(Request $request)
 {
     try {
-        $favorite = Favorito::where('user_id', auth()->id())
+        $favorite = Favorito::where('user_id', Auth::id())
             ->where('profesor_id', $request->teacher_id)
             ->first();
 
@@ -199,7 +220,9 @@ public function getFeaturedTeachers()
                     'favorites_count' => $user->favorites_count,
                     'skills' => $user->habilidadesOfrecidas->map(function($habilidad) {
                         return $habilidad->habilidad->nombre;
-                    })->toArray()
+                    })->toArray(),
+                    'isFavorite' => Favorito::where('user_id', Auth::id())->where('profesor_id', $user->id)->exists(),
+                        'favorites_count' => Favorito::where('profesor_id', $user->id)->count()
                 ];
             });
 
@@ -220,7 +243,7 @@ public function getUserFavorites()
 {
     try {
         $favorites = Favorito::with(['teacher.habilidadesOfrecidas.habilidad'])
-            ->where('user_id', auth()->id())
+            ->where('user_id', Auth::id())
             ->get()
             ->map(function($favorite) {
                 return [

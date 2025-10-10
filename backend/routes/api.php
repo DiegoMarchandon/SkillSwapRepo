@@ -10,12 +10,10 @@ use App\Http\Controllers\BuscarHabilidadesController;
 use App\Http\Controllers\ProfesoresController;
 use App\Http\Controllers\CalendarioController;
 use App\Http\Controllers\ReservaController;
-
+use App\Http\Controllers\FavoriteController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login',    [AuthController::class, 'login']);
-
-
 
 Route::middleware('auth:sanctum')->group(function () {
     // Sesión / usuario
@@ -37,12 +35,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/my-skills',                 [MisHabilidadesController::class, 'store']);
     Route::put('/my-skills/{skill}',         [MisHabilidadesController::class, 'update']);
     Route::delete('/my-skills/{skill}',         [MisHabilidadesController::class, 'destroy']);
+
+    Route::delete('/favoritos/remove', [FavoriteController::class, 'destroy']);
+    Route::post('/favoritos/agregar', [FavoriteController::class, 'store']);
     // búsqueda de profesores
     Route::get('/profesores', [ProfesoresController::class, 'getAllTeachers']);
-    Route::get('/profesores/buscar', [ProfesoresController::class, 'searchTeachers']);
 });
 
+Route::get('/profesores/buscar', [ProfesoresController::class, 'searchTeachers']);
 // Búsqueda pública de habilidades (profes que enseñan o gente que quiere aprender)
+
 Route::get('/buscar', BuscarHabilidadesController::class); // ?habilidad=java&modo=teach|learn
 
 
