@@ -1,11 +1,14 @@
 'use client';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import api from '../../utils/axios';
 import Header from '../../components/layout/Header';
 
 const NIVELES = ['principiante', 'intermedio', 'avanzado'];
 
 export default function SearchPage() {
+  const router = useRouter();
+
   const [tipo, setTipo] = useState('ofrecida'); // ofrecida = profesores (enseñan)
   const [nivel, setNivel] = useState('');       // filtro opcional
   const [term, setTerm] = useState('');
@@ -13,7 +16,7 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
 
-  const onSubmit = async (e) => {
+  async function onSubmit(e) {
     e.preventDefault();
     if (!term.trim() && !nivel) return;
     setLoading(true);
@@ -21,23 +24,24 @@ export default function SearchPage() {
     try {
       const params = { habilidad: term.trim() || undefined, tipo, nivel: nivel || undefined };
       const { data } = await api.get('/buscar', { params });
-      setResults(data);
+      const list = Array.isArray(data) ? data : (data?.data ?? []);
+      setResults(list);
     } catch (error) {
+      console.error('Error en la solicitud: ', error);
       setErr('No se pudieron obtener resultados.');
       setResults([]);
-      console.error('Error en la solicitud: ', error);
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const clearAll = () => {
+  function clearAll() {
     setTerm('');
     setTipo('ofrecida');
     setNivel('');
     setResults([]);
     setErr(null);
-  };
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white text-gray-900 rounded-2xl shadow">
@@ -77,17 +81,39 @@ export default function SearchPage() {
           <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>
         ) : results.length ? (
           <ul className="divide-y">
-            {results.map((r, i) => (
-              <li key={i} className="flex items-center gap-3 py-2">
-                <div className="flex-1">
-                  <div className="font-medium">{r.user.name}</div>
-                  <div className="text-sm text-gray-600">
-                    {r.skill.name} {r.skill.nivel ? `· ${r.skill.nivel}` : ''}
+            {results.map((row, i) => {
+              const userId   = row?.user?.id;
+              const userName = row?.user?.name ?? 'Usuario';
+              const skillId  = row?.skill?.id;
+              const skillNom = row?.skill?.name ?? row?.skill?.nombre ?? 'Habilidad';
+              const skillNiv = row?.skill?.nivel;
+
+              const goCalendario = () => {
+                if (!userId) return;
+                const q = skillId ? `?skill=${skillId}` : '';
+                router.push(`/instructores/${userId}${q}`);
+              };
+
+              return (
+                <li key={i} className="flex items-center gap-3 py-3">
+                  <div className="flex-1">
+                    <div className="font-medium">{userName}</div>
+                    <div className="text-sm text-gray-600">
+                      {skillNom}{skillNiv ? ` · ${skillNiv}` : ''}
+                    </div>
                   </div>
-                </div>
-                {/* Futuro: botón "Ver perfil" / "Solicitar" */}
-              </li>
-            ))}
+
+                  {tipo === 'ofrecida' && userId && (
+                    <button
+                      onClick={goCalendario}
+                      className="px-3 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700"
+                    >
+                      Ver disponibilidad
+                    </button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <div>Sin resultados todavía.</div>

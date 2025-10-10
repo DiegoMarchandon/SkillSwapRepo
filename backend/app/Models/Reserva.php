@@ -20,13 +20,20 @@ class Reserva extends Model
         'inicio_real_utc',
         'fin_real_utc',
         'duracion_real_min',
-        'creditos_cobrados'
+        'creditos_cobrados',
+        'habilidad_id'
     ];
 
     protected $casts = [
         'inicio_real_utc' => 'datetime',
         'fin_real_utc'    => 'datetime',
     ];
+
+    public function habilidad()
+    {
+        return $this->belongsTo(\App\Models\Habilidad::class, 'habilidad_id');
+    }
+
 
     public function disponibilidad()
     {
