@@ -101,8 +101,109 @@ Servidor Socket.io independiente que escuchará en el puerto 4000.
 - En la otra no toques nada: se va a conectar automáticamente.
 - Vas a ver tu cámara local y el video remoto.
 
-**pendiente:** 
-- pedir diagrama visual simple de cómo interactúan webRTC, Docker Desktop, WSL2, socket.io y mi contenedor coturn de PC.
-- "Una vez que pueda montar por completo mi servicio de videollamadas, debo de convencer a mi compañero de proyecto de que elegí la opción más viable, "fácil" de entre todas las que había, y que implica descargar menos cosas para poder montar un servicio de videollamadas del que tengamos control absoluto. Pero al descargar tantas cosas (WSL2, Docker Desktop, socket.io, etc) posiblemente desconfíe Podrías ayudarme a explicarle  la importancia de cada una de las tecnologías que instalamos, cómo se relacionan y porqué resultó la alternativa más viable y liviana de entre las opciones que me presentaste para montar todo de cero?"
+# Pasos para configurar WebRTC
 
-- mi idea con las métricas en cuestión es que queden almacenadas una vez que la videollamada finalice para, en caso de que haya habido alguna eventualidad en medio ( se le corte la llamada a la persona que dicta la clase) la persona estudiante pueda "reclamar" por esa desconexión y haya una forma de verificar la causa y el culpable de esa interrupción. 
+## 1) Instalar WSL2 + Ubuntu (recomendado)
+
+Abrir *PowerShell como Administrador* (preferible hacerlo desde la terminal de tu PC en lugar de la de visual studio) y ejecutar:
+> wsl --install -d Ubuntu  
+
+Seguir el asistente: espera la descarga, crea usuario/contraseña.
+Verificar:
+
+> wsl -l -v
+
+Debe aparecer: **Ubuntu  Running  2**
+
+**si te sale un error  como <font color="red">  "Subsistema de Windows para Linux no tiene distribuciones instaladas." </font> es porque se instaló exitosamente, pero no hay distribuciones Linux instaladas Para eso, instalamos Ubuntu:**
+ 
+
+> wsl --install -d Ubuntu
+
+Ahora sí, corriendo **wsl -l -v** deberías ver el "Ubuntu Running 2"
+
+**si te sale un error  como <font color="red">  "/ProyectoFinal/backend$ wsl -l -v wsl: command not found"  </font> es porque WSL no quedó correctamente habilitado en tu Windows todavía. O que la terminal no tiene acceso al comando `wsl`. Para solucionarlo:**
+
+
+1) Abrir *PowerShell como Administrador* y ejecutar: 
+
+`dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart`
+
+2) Ahora, necesitás habilitar la máquina virtual. Para eso ejecutar: 
+
+`dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart`
+
+Después, tenés que reiniciar la PC.
+
+3) Una vez reiniciado, Abrir nuevamente *PowerShell como Administrador* y ejecutar:
+
+> wsl --install
+
+esto va a instalar la última versión de WSL2 y Ubuntu como distribución predeterminada.
+
+#### Verificar instalación
+> wsl -l -v
+
+deberías ver ahora sí "Name: **Ubuntu** State:**running** version:**2**".
+
+
+## 2) Instalar Docker Desktop (Windows)
+
+Descargar e instalar desde: https://www.docker.com/products/docker-desktop
+
+Durante la instalación: elegir usar WSL 2 si pregunta (a mi no me preguntó). 
+
+Abrir Docker Desktop → Settings → Resources → WSL Integration → marcar Ubuntu → Apply & Restart (puede venir marcada ya por defecto).
+
+Probar:
+
+> docker run hello-world
+
+debe mostrar **“Hello from Docker!”**. 
+
+- Esto me devolvió a mí:
+
+"Unable to find image 'hello-world:latest' locally latest: Pulling from library/hello-world 17eec7bbc9d7: Pull complete Digest: sha256:54e66cc1dd1fcb1c3c58bd8017914dbed8701e2d8c74d9262e26bd9cc1642d31 Status: Downloaded newer image for hello-world:latest Hello from Docker! This message shows that your installation appears to be working correctly. To generate this message, Docker took the following steps: 1. The Docker client contacted the Docker daemon. 2. The Docker daemon pulled the "hello-world" image from the Docker Hub. (amd64) 3. The Docker daemon created a new container from that image which runs the executable that produces the output you are currently reading. 4. The Docker daemon streamed that output to the Docker client, which sent it to your terminal. To try something more ambitious, you can run an Ubuntu container with: $ docker run -it ubuntu bash Share images, automate workflows, and more with a free Docker ID: https://hub.docker.com/ For more examples and ideas, visit: https://docs.docker.com/get-started/"
+
+significa que ya está funcionando correctamente.
+
+## <font color= "green">3)Creamos la carpeta de configuración (ya está creada)</font> 
+
+Este paso quizás te lo podrías saltear, ya que acá lo que hice fue crear la carpeta /coturn/turnserver.conf para poder realizar las pruebas locales. Pero como seguro lo ves deste tu repo lo menciono como data.
+
+Ese archivo levanra un servidor STUN/TURN en la máquian local, puerto 3478, con un usuario simple `admin/12345`
+
+## 4) Instalar socket.io
+WebRTC por sí solo no puede intercambiar datos (SDP e ICE) sin ayuda externa. Necesitamos algo que actúe de "mensajero" entre los dos navegadores. La forma más común es usar **Socket.io** porque simplifica todo el flujo.
+
+### en el back
+Parate dentro de /backend/ (`cd backend`) e instalá:
+
+> `npm install socket.io`
+
+### en el front
+Parate dentro de /frontend/ (`cd frontend`) e instalá:
+
+> `npm install socket.io-client`
+
+## <font color= "green">5) creamos un servidor Node.js</font>
+
+este paso también te lo podés saltear, ya que acá lo que hice fue crear un archivo `server.js` en mi backend, que usa Node.js (necesario para el signaling de WebRTC).
+
+### **Lo importante** es que tenés que ejecutar el comando `node server.js` para correr el servidor de signaling (hecho con Node.js) encargado de las videollamadas. Es indistinto si corrés o no también el de Laravel (`php artisan serve`) ya que hasta ahora no hay relación entre las videollamadas y nuestro resto del back.
+
+## <font color= "green">6) creamos Nuestro front de Next.js para mostrar las videollamadas</font>
+Hasta ahora, nuestro código crea una conexión WebRTC local, pero no la "comparte" con nadie. Ahora lo integramos con Socket.io creando el archivo en la siguiente ruta:`(/app/webrtc/page.js)`
+
+Explicación del o que hace el código en ese archivo:
+
+- Se conecta al servidor de signaling que levantaste en Laravel (localhost:4000).
+- Usa navigator.mediaDevices.getUserMedia para mostrar el video local.
+- Envía y recibe offer, answer y ICE candidates por Socket.io.
+
+## Para probar: 
+- Corrés `npm run dev` y `node server.js` en el backend.
+- Abrís dos pestañas con el enlace `localhost:3000/webrtc`:
+- En una hacé clic en “Iniciar llamada”.
+- En la otra no haces nada: se va a conectar automáticamente.
+- Vas a ver tu cámara local y el video remoto.
