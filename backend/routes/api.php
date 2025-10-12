@@ -53,9 +53,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/calls', [CallController::class, 'index']);
     Route::get('/calls/{id}', [CallController::class, 'show']);
     Route::post('/calls', [CallController::class, 'store']);
+    Route::post('/call-metrics', [CallMetricsController::class, 'store']);
     
 });
-Route::post('/call-metrics', [CallMetricsController::class, 'store']);
 
 Route::get('/profesores/buscar', [ProfesoresController::class, 'searchTeachers']);
 // Búsqueda pública de habilidades (profes que enseñan o gente que quiere aprender)

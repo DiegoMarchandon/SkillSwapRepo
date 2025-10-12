@@ -5,14 +5,14 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\CallMetric;
 use App\Models\Call;
+use Illuminate\Support\Facades\Log;
 
 class CallMetricsController extends Controller
 {
     public function store(Request $request)
     {
 
-        // dd($request->all()); // Debug: imprimir los datos recibidos
-        // Validación completa de call_id y metrics
+        Log::info('CallMetrics store called', $request->all()); // Para debug
         $validated = $request->validate([
             'call_id' => 'required|integer|exists:calls,id',
             'metrics' => 'required|array',
@@ -31,8 +31,6 @@ class CallMetricsController extends Controller
             return response()->json([
                 'error' => 'Usuario no autenticado o token inválido',
             ], 401);
-        }else{
-            return response()->json(['message' => 'Usuario autenticado'], 200);
         }
 
         $userId = $user->id;
@@ -42,8 +40,6 @@ class CallMetricsController extends Controller
         $call = Call::find($validated['call_id']);
         if (!$call) {
             return response()->json(['error' => 'Llamada no encontrada'], 404);
-        }else{
-            return response()->json(['message' => 'Llamada encontrada'], 200);
         }
 
         // dd($validated);
@@ -52,7 +48,7 @@ class CallMetricsController extends Controller
                 // 'call_id' => $validated['call_id'],
                 'call_id' => $call->id,
                 'user_id' => $userId,
-                'timestamp' => isset($metric['timestamp']) ? floor($metric['timestamp']/1000) : now()->timestamp,
+                'timestamp' => isset($metric['timestamp']) ? date('Y-m-d H:i:s', $metric['timestamp']) : now()->format('Y-m-d H:i:s'), // Convertir a timestamp si es necesario, o usar la fecha actual si no se proporciona timestamp,
                 'bytes_sent' => $metric['bytesSent'] ?? null,
                 'bytes_received' => $metric['bytesReceived'] ?? null,
                 'fps' => $metric['framesPerSecond'] ?? null,
@@ -62,6 +58,15 @@ class CallMetricsController extends Controller
             ]);
         }
 
+        // Actualizar la llamada con ended_at
+        $call->update([
+            'ended_at' => now(),
+            'status' => 'completed'
+        ]);
+
+        Log::info("Métricas guardadas y llamada actualizada. Métricas: " . count($validated['metrics']));
+
         return response()->json(['message' => 'Métricas guardadas con éxito.']);
+    
     }
 }
