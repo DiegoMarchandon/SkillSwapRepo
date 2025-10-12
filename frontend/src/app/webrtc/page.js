@@ -1,6 +1,9 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import io from 'socket.io-client';
+import api from '../../utils/axios';
+import { useAuth } from '../../context/AuthContext';
+import useStartCall from '../../hooks/useStarCall';
 
 export default function WebRTCPage() {
   const localVideoRef = useRef(null);
@@ -8,15 +11,52 @@ export default function WebRTCPage() {
   const pcRef = useRef(null);
   const socketRef = useRef(null);
   const [isCaller, setIsCaller] = useState(false);
-  const statsIntervalRef = useRef(null); //Referencia para el intervalo
-  const metricsRef = useRef([]); //Referencia para las métricas
+  const statsIntervalRef = useRef(null);
+  const metricsRef = useRef([]);
+  const { user } = useAuth();
+  const { startCall } = useStartCall(); // ✅ corregido
 
+  // 🧩 Recolección de métricas centralizada
+  const collectStats = async () => {
+    const stats = await pcRef.current.getStats();
+    stats.forEach(report => {
+      if (report.type === 'outbound-rtp' && report.kind === 'video') {
+        metricsRef.current.push({
+          timestamp: report.timestamp,
+          bytesSent: report.bytesSent,
+          framesPerSecond: report.framesPerSecond,
+          packetsSent: report.packetsSent,
+          roundTripTime: report.roundTripTime
+        });
+      }
+      if (report.type === 'inbound-rtp' && report.kind === 'video') {
+        metricsRef.current.push({
+          timestamp: report.timestamp,
+          bytesReceived: report.bytesReceived,
+          packetsLost: report.packetsLost,
+          jitter: report.jitter
+        });
+      }
+    });
+  };
+
+  const startCollecting = () => {
+    if (!statsIntervalRef.current) {
+      statsIntervalRef.current = setInterval(collectStats, 5000);
+    }
+  };
+
+  const stopCollecting = () => {
+    if (statsIntervalRef.current) {
+      clearInterval(statsIntervalRef.current);
+      statsIntervalRef.current = null;
+    }
+    console.table(metricsRef.current);
+  };
 
   useEffect(() => {
-    // 1️⃣ Conectarse al servidor Socket.io (asegurate que está en puerto 4000)
     socketRef.current = io('http://localhost:4000');
 
-    // 2️⃣ Configurar servidor STUN/TURN
     pcRef.current = new RTCPeerConnection({
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
@@ -24,101 +64,78 @@ export default function WebRTCPage() {
       ]
     });
 
-    // Función para recolectar métricas
-const collectStats = async () => {
-  const stats = await pcRef.current.getStats();
-  stats.forEach(report => {
-    if (report.type === 'outbound-rtp' && report.kind === 'video') {
-      metricsRef.push({
-        timestamp: report.timestamp,
-        bytesSent: report.bytesSent,
-        framesPerSecond: report.framesPerSecond,
-        packetsSent: report.packetsSent,
-        roundTripTime: report.roundTripTime
-      });
-    }
-    if (report.type === 'inbound-rtp' && report.kind === 'video') {
-      metricsRef.push({
-        timestamp: report.timestamp,
-        bytesReceived: report.bytesReceived,
-        packetsLost: report.packetsLost,
-        jitter: report.jitter
-      });
-    }
-  });
-};
+    // Enviar ICE candidates
+    pcRef.current.onicecandidate = (event) => {
+      if (event.candidate) {
+        socketRef.current.emit('ice-candidate', event.candidate);
+      }
+    };
 
-// Iniciar la recolección cuando arranca la llamada
-const startCollecting = () => {
-  statsIntervalRef.current = setInterval(collectStats, 5000); // cada 5 segundos
-};
+    // Mostrar pista remota
+    pcRef.current.ontrack = (event) => {
+      remoteVideoRef.current.srcObject = event.streams[0];
+    };
 
-  // 3️⃣ Enviar ICE candidates al otro peer
-  pcRef.current.onicecandidate = (event) => {
-    if (event.candidate) {
-      socketRef.current.emit('ice-candidate', event.candidate);
-    }
-  };
+    // Escuchar oferta entrante
+    socketRef.current.on('offer', async ({ offer, call_id }) => {
+      if (!isCaller) {
+        localStorage.setItem('call_id', call_id);
 
-  // 4️⃣ Cuando llegue una pista remota, mostrarla
-  pcRef.current.ontrack = (event) => {
-    remoteVideoRef.current.srcObject = event.streams[0];
-  };
+        await pcRef.current.setRemoteDescription(new RTCSessionDescription(offer));
 
-  // 5️⃣ Escuchar mensajes del servidor Socket.io
-  socketRef.current.on('offer', async (offer) => {
-    if (!isCaller) {
-      await pcRef.current.setRemoteDescription(new RTCSessionDescription(offer));
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      stream.getTracks().forEach(track => pcRef.current.addTrack(track, stream));
-      localVideoRef.current.srcObject = stream;
-  
-      const answer = await pcRef.current.createAnswer();
-      await pcRef.current.setLocalDescription(answer);
-      socketRef.current.emit('answer', answer);
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        stream.getTracks().forEach(track => pcRef.current.addTrack(track, stream));
+        localVideoRef.current.srcObject = stream;
+
+        const answer = await pcRef.current.createAnswer();
+        await pcRef.current.setLocalDescription(answer);
+        socketRef.current.emit('answer', { answer, call_id });
+
+        startCollecting();
+      }
+    });
+
+    // Escuchar respuesta
+    socketRef.current.on('answer', async ({ answer }) => {
+      await pcRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+    });
+
+    // Escuchar ICE candidates remotos
+    socketRef.current.on('ice-candidate', async (candidate) => {
+      if(!pcRef.current || pcRef.current.signalingState === 'closed'){
+        console.warn("Ignorando ICE candidate: conexijh");
+      }
       
-      // Iniciar la recolección cuando se responde la llamada
-      startCollecting();
-    }
-  });
+      try {
+        await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (err) {
+        console.error('Error agregando ICE candidate:', err);
+      }
+    });
 
-  socketRef.current.on('answer', async (answer) => {
-    await pcRef.current.setRemoteDescription(new RTCSessionDescription(answer));
-  });
-  
-  socketRef.current.on('ice-candidate', async (candidate) => {
-    try {
-      await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
-    } catch (err) {
-      console.error('Error agregando ICE candidate:', err);
-    }
-  });
-  
-      return () => {
-        // Limpiar al desmontar el componente
-        if(statsIntervalRef.current){
-          clearInterval(statsIntervalRef.current);
-        }
+    return () => {
+      if (statsIntervalRef.current) clearInterval(statsIntervalRef.current);
+      
+      if(pcRef.current){
+        pcRef.current.close();
+        pcRef.current = null;
+      } 
+      
+      if(socketRef.current){
         socketRef.current.disconnect();
-      };
-    }, [isCaller]);
+        socketRef.current = null;
+      }
+    };
+  }, []);
 
-// Detener y mostrar métricas cuando termine la llamada
-const stopCollecting = () => {
-  if(statsIntervalRef.current){
-    clearInterval(statsIntervalRef.current);
-    statsIntervalRef.current = null;
-  }
-  console.table(metricsRef.current);
-  metricsRef.current = []; // Reiniciar métricas para la próxima llamada
-  // 👇 más adelante, vas a enviar esto a Laravel vía API
-};
-
-
-  // 6️⃣ Función para iniciar la llamada
-  const startCall = async () => {
+  // 🟢 Iniciar llamada
+  const handleStartCall = async () => {
     setIsCaller(true);
-    // const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+
+    // Crear la llamada en backend y obtener call_id
+    const callId = await startCall(user?.id); // se puede ajustar para pasar el receptor real
+    localStorage.setItem('call_id', callId);
+
     const devices = await navigator.mediaDevices.enumerateDevices();
     const videoDevice = devices.find(d => d.kind === 'videoinput' && d.label.includes('Integrated'))?.deviceId;
 
@@ -132,54 +149,56 @@ const stopCollecting = () => {
 
     const offer = await pcRef.current.createOffer();
     await pcRef.current.setLocalDescription(offer);
-    socketRef.current.emit('offer', offer);
 
-    const startCollecting = () => {
-      statsIntervalRef.current = setInterval(async () => {
-        const stats = await pcRef.current.getStats();
-        stats.forEach(report => {
-          if (report.type === 'outbound-rtp' && report.kind === 'video') {
-            metricsRef.current.push({
-              timestamp: report.timestamp,
-              bytesSent: report.bytesSent,
-              framesPerSecond: report.framesPerSecond,
-              packetsSent: report.packetsSent,
-              roundTripTime: report.roundTripTime
-            });
-          }
-          if (report.type === 'inbound-rtp' && report.kind === 'video') {
-            metricsRef.current.push({
-              timestamp: report.timestamp,
-              bytesReceived: report.bytesReceived,
-              packetsLost: report.packetsLost,
-              jitter: report.jitter
-            });
-          }
-        });
-      }, 5000);
-    };
+    socketRef.current.emit('offer', { offer, call_id: callId });
 
     startCollecting();
   };
 
-  const endCall = () => {
-    stopCollecting(); // Detiene el interval y muestra las métricas
-  
-    // Detiene los tracks locales (apaga cámara y micrófono)
+  // 🔴 Terminar llamada
+  const endCall = async () => {
+    stopCollecting();
+
+    const metrics = metricsRef.current;
+    if (!metrics.length) {
+      console.log("No hay métricas para enviar");
+      return;
+    }
+
+    // Preparamos el payload transformando cada métrica para que tenga las claves que espera Laravel
+  const payload = {
+    call_id: parseInt(localStorage.getItem('call_id')), // asegurarse que es un integer
+    metrics: metrics.map(m => ({
+      // timestamp: m.timestamp ?? Date.now(),
+      // timestamp: new Date(m.timestamp).toISOString().slice(0,19).replace('T', ' '),
+      timestamp: Math.floor(Number(m.timestamp)/1000),
+      bytesSent: m.bytesSent ?? 0,
+      bytesReceived: m.bytesReceived ?? 0,
+      framesPerSecond: m.framesPerSecond ?? 0,
+      roundTripTime: m.roundTripTime ?? 0,
+      packetsLost: m.packetsLost ?? 0,
+      jitter: m.jitter ?? 0
+    }))
+  };
+
+  console.log("Payload para enviar:", JSON.stringify(payload, null, 2)); // Debug: imprimir el payload);
+
+    try {
+      const { data } = await api.post('/call-metrics', payload);
+      console.log("Métricas enviadas al backend:", data);
+    } catch (error) {
+      console.error("Error al enviar las métricas:", error);
+    }
+
+    // Detener los tracks locales (cámara y micrófono)
     if (localVideoRef.current?.srcObject) {
       localVideoRef.current.srcObject.getTracks().forEach(track => track.stop());
     }
-  
-    // Cerrar la conexión WebRTC
-    if (pcRef.current) {
-      pcRef.current.close();
-    }
 
-    // Cerrar la conexión del socket
-    if (socketRef.current) {
-      socketRef.current.disconnect();
-    }
-  
+    // Cerrar la conexión WebRTC y Socket
+    if (pcRef.current) pcRef.current.close();
+    if (socketRef.current) socketRef.current.disconnect();
+
     alert('Llamada finalizada. Revisa la consola para ver las métricas.');
   };
 
@@ -191,7 +210,7 @@ const stopCollecting = () => {
         <video ref={remoteVideoRef} autoPlay playsInline className="w-1/2 border rounded" />
       </div>
       <button
-        onClick={startCall}
+        onClick={handleStartCall}
         className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 m-3"
       >
         Iniciar llamada
@@ -205,4 +224,3 @@ const stopCollecting = () => {
     </div>
   );
 }
-

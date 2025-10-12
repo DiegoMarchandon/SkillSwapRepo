@@ -12,6 +12,8 @@ use App\Http\Controllers\CalendarioController;
 use App\Http\Controllers\ReservaController;
 use App\Http\Controllers\DisponibilidadController;
 use App\Http\Controllers\FavoriteController;
+use App\Http\Controllers\CallMetricsController;
+use App\Http\Controllers\CallController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login',    [AuthController::class, 'login']);
@@ -45,7 +47,15 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Crear disponibilidades (solo instructor dueño)
     Route::post('/instructores/{id}/disponibilidades', [DisponibilidadController::class, 'store']);
+
+    // endpoint para recibir las métricas
+    
+    Route::post('/calls', [CallController::class, 'index']);
+    Route::get('/calls/{id}', [CallController::class, 'show']);
+    Route::post('/calls', [CallController::class, 'store']);
+    
 });
+Route::post('/call-metrics', [CallMetricsController::class, 'store']);
 
 Route::get('/profesores/buscar', [ProfesoresController::class, 'searchTeachers']);
 // Búsqueda pública de habilidades (profes que enseñan o gente que quiere aprender)

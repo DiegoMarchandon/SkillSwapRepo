@@ -6,5 +6,5 @@ return [
     'allowed_headers' => ['*'], // incluye Authorization
     'exposed_headers' => [],
     'max_age' => 0,
-    'supports_credentials' => false, // SIN cookies
+    'supports_credentials' => true, // SIN cookies
 ];
