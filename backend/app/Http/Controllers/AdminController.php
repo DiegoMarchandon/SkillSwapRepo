@@ -83,24 +83,25 @@ class AdminController extends Controller
     {
         $sessions = Call::where('caller_id', $userId)
             ->orWhere('receiver_id', $userId)
-            ->with(['metrics', 'caller', 'receiver'])
-            ->with(['skill' => function($q) {
-                $q->select('id', 'nombre as name');
-            }])
+            ->with(['metrics', 'caller', 'receiver', 'usuarioHabilidad.habilidad'])
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function($call) use ($userId) {
+                $duration = null;
+                if ($call->started_at && $call->ended_at) {
+                    $start = \Carbon\Carbon::parse($call->started_at);
+                    $end = \Carbon\Carbon::parse($call->ended_at);
+                    $duration = $start->diffInMinutes($end);
+                }
                 return [
                     'id' => $call->id,
                     'instructor_id' => $call->caller_id,
                     'student_id' => $call->receiver_id,
-                    'skill_name' => $call->skill?->name,
+                    'skill_name' => $call->habilidad_nombre,
                     'started_at' => $call->started_at,
                     'ended_at' => $call->ended_at,
-                    'duration_minutes' => $call->ended_at 
-                        ? round((strtotime($call->ended_at) - strtotime($call->started_at)) / 60)
-                        : null,
-                    'role' => $call->caller_id == $userId ? 'instructor' : 'student',
+                    'duration_minutes' => $duration,
+                    'role' => $call->caller_id == $userId ? 'instructor' : 'estudiante',
                     'metrics' => $call->metrics
                 ];
             });

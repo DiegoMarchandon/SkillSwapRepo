@@ -1,3 +1,5 @@
+import SessionRow from './SessionRow';
+
 // Componente: Historial de Sesiones del Usuario
 export default function UserSessions({ user, sessions, loading }) {
     if (loading) {
