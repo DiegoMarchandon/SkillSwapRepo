@@ -1,8 +1,13 @@
 import InstructorCalendar from '../../../components/calendario/InstructorCalendar';
 
-export default function InstructorPage({ params, searchParams }) {
-  const instructorId = Number(params.id);
-  const skillRaw = searchParams?.skill;
+export default async function InstructorPage({ params, searchParams }) {
+  
+  // Await params antes de usarlo
+  const { id } = await params;
+  const searchParamsObj = await searchParams;
+
+  const instructorId = Number(id);
+  const skillRaw = searchParamsObj?.skill;
   const skillId = Array.isArray(skillRaw) ? Number(skillRaw[0]) : (skillRaw ? Number(skillRaw) : null);
 
   return (

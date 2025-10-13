@@ -14,6 +14,7 @@ use App\Http\Controllers\DisponibilidadController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\CallMetricsController;
 use App\Http\Controllers\CallController;
+use App\Http\Controllers\AdminController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login',    [AuthController::class, 'login']);
@@ -55,12 +56,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/calls', [CallController::class, 'store']);
     Route::post('/call-metrics', [CallMetricsController::class, 'store']);
     
+    // endpoins para el admin
+    Route::get('/admin/dashboard-stats', [AdminController::class, 'dashboardStats']);
+    Route::get('/admin/users', [AdminController::class, 'getUsers']);
+    Route::get('/admin/users/{id}/sessions', [AdminController::class, 'getUserSessions']);
 });
 
 Route::get('/profesores/buscar', [ProfesoresController::class, 'searchTeachers']);
 // Búsqueda pública de habilidades (profes que enseñan o gente que quiere aprender)
-
-Route::get('/buscar', BuscarHabilidadesController::class); // ?habilidad=java&modo=teach|learn
 
 // Búsqueda pública
 Route::get('/buscar', BuscarHabilidadesController::class);

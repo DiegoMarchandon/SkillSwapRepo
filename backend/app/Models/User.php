@@ -99,4 +99,39 @@ class User extends Authenticatable
     {
         return $this->hasMany(Favorito::class, 'profesor_id');
     }
+
+        /**
+     * Relación: Llamadas donde el usuario es el caller (instructor)
+     */
+    public function callsAsCaller()
+    {
+        return $this->hasMany(Call::class, 'caller_id');
+    }
+
+    /**
+     * Relación: Llamadas donde el usuario es el receiver (estudiante)
+     */
+    public function callsAsReceiver()
+    {
+        return $this->hasMany(Call::class, 'receiver_id');
+    }
+
+    /**
+     * Relación: Todas las llamadas del usuario (como caller o receiver)
+     */
+    public function allCalls()
+    {
+        return Call::where('caller_id', $this->id)
+            ->orWhere('receiver_id', $this->id);
+    }
+
+    /**
+     * Relación con habilidades del usuario
+     */
+    public function skills()
+    {
+        return $this->belongsToMany(Habilidad::class, 'usuario_habilidad', 'user_id', 'habilidad_id')
+            ->withPivot('nivel', 'tipo')
+            ->withTimestamps();
+    }
 }
