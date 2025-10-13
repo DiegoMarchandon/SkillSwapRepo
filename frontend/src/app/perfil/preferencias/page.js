@@ -89,7 +89,7 @@ export default function PreferenciasPage() {
       const filtered = allTeachers.filter(teacher => 
         teacher.name.toLowerCase().includes(term) ||
         teacher.skills.some(skill => 
-          skill.toLowerCase().includes(term)
+          skill.name.toLowerCase().includes(term)
         )
       );
 
@@ -109,11 +109,14 @@ export default function PreferenciasPage() {
 
   const handleAddToFavorites = async (teacherId) => {
     console.log("hola");
+    
     try {
       const teacher = allTeachers.find(t => t.id === teacherId);
       if (!teacher) {
         console.error("No se encontró el profesor");
         return;
+      }else{
+        console.log("Profesor existe:",teacher);
       }
       
       // obtener el primer usuario_habilidad_id del profesor
@@ -128,6 +131,7 @@ export default function PreferenciasPage() {
 
       if (response.data.success) {
         fetchTeachers();
+        setShowSuggestions(false);
       }
     } catch (error) {
       console.error('Error adding to favorites:', error);
@@ -182,10 +186,10 @@ export default function PreferenciasPage() {
                     </div>
                   </div>
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      console.log("click");
+                    onMouseDown={(e) => {
                       e.preventDefault();
+                      e.stopPropagation();
+                      // console.log("click");
                       handleAddToFavorites(teacher.id);
                     }}
                     className="px-3 py-1 bg-violet-500 text-white rounded-lg hover:bg-violet-600 text-sm"

@@ -49,12 +49,15 @@ Route::middleware('auth:sanctum')->group(function () {
     // Crear disponibilidades (solo instructor dueño)
     Route::post('/instructores/{id}/disponibilidades', [DisponibilidadController::class, 'store']);
 
-    // endpoint para recibir las métricas
-    
+    // Endpoints para recibir las métricas
     Route::post('/calls', [CallController::class, 'index']);
     Route::get('/calls/{id}', [CallController::class, 'show']);
     Route::post('/calls', [CallController::class, 'store']);
     Route::post('/call-metrics', [CallMetricsController::class, 'store']);
+    
+    // Favoritos
+    Route::delete('/favoritos/remove', [FavoriteController::class, 'destroy']);
+    Route::post('/favoritos/agregar', [FavoriteController::class, 'store']);
     
     // endpoins para el admin
     Route::get('/admin/dashboard-stats', [AdminController::class, 'dashboardStats']);

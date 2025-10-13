@@ -4,6 +4,7 @@ import io from 'socket.io-client';
 import api from '../../utils/axios';
 import { useAuth } from '../../context/AuthContext';
 import useStartCall from '../../hooks/useStarCall';
+import { useSearchParams } from 'next/navigation';
 
 export default function WebRTCPage() {
   const localVideoRef = useRef(null);
@@ -15,6 +16,12 @@ export default function WebRTCPage() {
   const metricsRef = useRef([]);
   const { user } = useAuth();
   const { startCall } = useStartCall(); // ✅ corregido
+  const searchParams = useSearchParams();
+
+  // Obtener receiverId y usuarioHabilidadId de la URL
+  const receiverId = searchParams.get('receiver_id');
+  const usuarioHabilidadId = searchParams.get('usuario_habilidad_id');
+
 
   // 🧩 Recolección de métricas centralizada
   const collectStats = async () => {
@@ -130,29 +137,42 @@ export default function WebRTCPage() {
 
   // 🟢 Iniciar llamada
   const handleStartCall = async () => {
+    
+    if (!receiverId) {
+      alert('Error: No se especificó un receptor para la llamada');
+      return;
+    }
+
     setIsCaller(true);
 
-    // Crear la llamada en backend y obtener call_id
-    const callId = await startCall(user?.id); // se puede ajustar para pasar el receptor real
-    localStorage.setItem('call_id', callId);
+    try{
+      // Crear la llamada en backend y obtener call_id
+      const callId = await startCall(receiverId,usuarioHabilidadId); // se puede ajustar para pasar el receptor real
 
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const videoDevice = devices.find(d => d.kind === 'videoinput' && d.label.includes('Integrated'))?.deviceId;
+      localStorage.setItem('call_id', callId);
+  
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevice = devices.find(d => d.kind === 'videoinput' && d.label.includes('Integrated'))?.deviceId;
+  
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: videoDevice ? { exact: videoDevice } : undefined },
+        audio: true
+      });
+  
+      stream.getTracks().forEach(track => pcRef.current.addTrack(track, stream));
+      localVideoRef.current.srcObject = stream;
+  
+      const offer = await pcRef.current.createOffer();
+      await pcRef.current.setLocalDescription(offer);
+  
+      socketRef.current.emit('offer', { offer, call_id: callId });
+  
+      startCollecting();
 
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { deviceId: videoDevice ? { exact: videoDevice } : undefined },
-      audio: true
-    });
-
-    stream.getTracks().forEach(track => pcRef.current.addTrack(track, stream));
-    localVideoRef.current.srcObject = stream;
-
-    const offer = await pcRef.current.createOffer();
-    await pcRef.current.setLocalDescription(offer);
-
-    socketRef.current.emit('offer', { offer, call_id: callId });
-
-    startCollecting();
+    } catch (err) {
+      console.error('Error al iniciar la llamada:', err);
+      throw err;
+    }
   };
 
   // 🔴 Terminar llamada
