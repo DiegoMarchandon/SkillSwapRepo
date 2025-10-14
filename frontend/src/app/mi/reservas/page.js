@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo } from 'react';
 import api from '../../../utils/axios';
 import { toLocal } from '../../../utils/time';
 import { useSearchParams } from 'next/navigation';
-
+import Link from 'next/link';
 
 export default function MisReservasPage() {
   const [loading, setLoading] = useState(true);
@@ -21,6 +21,7 @@ export default function MisReservasPage() {
     }
   }
 
+  console.log("hola desde reservas",rows);
   useEffect(() => { load(); }, []);
 
   async function cancelar(id) {

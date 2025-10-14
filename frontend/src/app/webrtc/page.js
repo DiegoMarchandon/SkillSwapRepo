@@ -17,6 +17,9 @@ export default function WebRTCPage() {
   const { user } = useAuth();
   const { startCall } = useStartCall(); // ✅ corregido
   const searchParams = useSearchParams();
+  const meetingId = searchParams.get('meeting_id');
+  const currentUserId = searchParams.get('current_user_id');
+  const otherUserId = searchParams.get('other_user_id');
 
   // Obtener receiverId y usuarioHabilidadId de la URL
   const receiverId = searchParams.get('receiver_id');
@@ -138,7 +141,7 @@ export default function WebRTCPage() {
   // 🟢 Iniciar llamada
   const handleStartCall = async () => {
     
-    if (!receiverId) {
+    if (!otherUserId) {
       alert('Error: No se especificó un receptor para la llamada');
       return;
     }
@@ -147,7 +150,7 @@ export default function WebRTCPage() {
 
     try{
       // Crear la llamada en backend y obtener call_id
-      const callId = await startCall(receiverId,usuarioHabilidadId); // se puede ajustar para pasar el receptor real
+      const callId = await startCall(otherUserId,usuarioHabilidadId); // se puede ajustar para pasar el receptor real
 
       localStorage.setItem('call_id', callId);
   

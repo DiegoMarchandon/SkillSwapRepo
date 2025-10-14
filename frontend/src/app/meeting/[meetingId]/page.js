@@ -2,7 +2,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import api from '../../../../utils/axios';
+import api from '../../../utils/axios';
 
 export default function MeetingPage() {
   const params = useParams();
@@ -17,9 +17,34 @@ export default function MeetingPage() {
     loadMeetingData();
   }, [meetingId]);
 
+  // Polling para alumnos con axios
+  useEffect(() => {
+    if (!isInstructor && !meetingStarted && reserva) {
+      console.log('🔄 Iniciando polling para alumno...');
+      
+      const interval = setInterval(async () => {
+        try {
+          const { data } = await api.get(`/meeting/${meetingId}/status`);
+          console.log('📡 Status check:', data);
+          
+          if (data.success) {
+            console.log('✅ Reunión iniciada! Redirigiendo alumno...');
+            setMeetingStarted(true);
+            initializeWebRTC();
+            clearInterval(interval);
+          }
+        } catch (error) {
+          console.error('❌ Error checking meeting status:', error);
+        }
+      }, 3000);
+
+      return () => clearInterval(interval);
+    }
+  }, [isInstructor, meetingStarted, meetingId, reserva]);
+
   async function loadMeetingData() {
     try {
-      const { data } = await api.get(`/api/meeting/${meetingId}`);
+      const { data } = await api.get(`/meeting/${meetingId}`);
       setReserva(data.reserva);
       setIsInstructor(data.isInstructor);
       setMeetingStarted(data.meetingStarted);
@@ -32,7 +57,7 @@ export default function MeetingPage() {
 
   async function startMeeting() {
     try {
-      await api.post(`/api/meeting/${meetingId}/start`);
+      await api.post(`/meeting/${meetingId}/start`);
       setMeetingStarted(true);
       initializeWebRTC();
     } catch (error) {
@@ -46,9 +71,21 @@ export default function MeetingPage() {
   }
 
   function initializeWebRTC() {
+    
+    const UserId = reserva.instructor_id;
+    const OtherUserId = reserva.alumno_id;
     // Aquí integras tu WebRTC component existente
     console.log('Inicializando WebRTC...');
-    // Tu lógica actual de page.js
+    
+    console.log('🔍 IDs para WebRTC:', {
+      UserId,
+      OtherUserId,
+      instructorId: reserva.instructor_id,
+      alumnoId: reserva.alumno_id
+    });
+    
+    // Redirigir a tu página WebRTC existente con el meeting_id como parámetro
+    window.location.href = `/webrtc?meeting_id=${meetingId}&current_user_id=${UserId}&other_user_id=${OtherUserId}`;
   }
 
   if (loading) {

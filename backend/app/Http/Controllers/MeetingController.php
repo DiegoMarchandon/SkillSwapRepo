@@ -83,7 +83,7 @@ class MeetingController extends Controller
         ]);
     }
 
-    public function status(string $meetingId): JsonResponse
+    public function status(Request $request, string $meetingId): JsonResponse
     {
         $reserva = Reserva::where('meeting_id', $meetingId)->first();
 
@@ -91,10 +91,19 @@ class MeetingController extends Controller
             return response()->json(['error' => 'Meeting not found'], 404);
         }
 
-        return response()->json([
-            'started' => !is_null($reserva->meeting_started_at),
+        // Verificar que el usuario tenga acceso (instructor o alumno)
+        $user = $request->user();
+
+        if ($user->id !== $reserva->instructor_id && $user->id !== $reserva->alumno_id) {
+            return response()->json(['error' => 'No access'], 403);
+        }
+    
+        $reserva->update([
+            'meeting_started_at' => !is_null($reserva->meeting_started_at), // ← ESTE es el campo importante
             'estado' => $reserva->estado
         ]);
+    
+        return response()->json(['success' => true]);
     }
 
 }

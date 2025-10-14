@@ -90,6 +90,7 @@ class ReservaController extends Controller
                 return [
                     'id'         => $res->id,
                     'estado'     => $res->estado,
+                    'meeting_id' => $res->meeting_id,
                     'instructor' => [
                         'id'    => $res->instructor->id,
                         'name'  => $res->instructor->name,
