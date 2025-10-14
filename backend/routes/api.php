@@ -15,6 +15,7 @@ use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\CallMetricsController;
 use App\Http\Controllers\CallController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\MeetingController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login',    [AuthController::class, 'login']);
@@ -63,6 +64,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/dashboard-stats', [AdminController::class, 'dashboardStats']);
     Route::get('/admin/users', [AdminController::class, 'getUsers']);
     Route::get('/admin/users/{id}/sessions', [AdminController::class, 'getUserSessions']);
+
+
+    // meetings
+    Route::get('/meeting/{meetingId}', [MeetingController::class, 'show']);
+    Route::post('/meeting/{meetingId}/start', [MeetingController::class, 'start']);
+    Route::get('/meeting/{meetingId}/status', [MeetingController::class, 'status']);
 });
 
 Route::get('/profesores/buscar', [ProfesoresController::class, 'searchTeachers']);

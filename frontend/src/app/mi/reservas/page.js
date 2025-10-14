@@ -50,6 +50,7 @@ export default function MisReservasPage() {
               <th className="px-4 py-3">Instructor</th>
               <th className="px-4 py-3">Horario</th>
               <th className="px-4 py-3">Estado</th>
+              <th className="px-4 py-3">Reunión</th>
               <th className="px-4 py-3 text-right">Acciones</th>
             </tr>
           </thead>
@@ -81,6 +82,16 @@ export default function MisReservasPage() {
                         'bg-indigo-100 text-indigo-800'}`}>
                       {r.estado}
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {r.estado === 'confirmada' && r.meeting_id && (
+                      <Link 
+                        href={`/meeting/${r.meeting_id}`}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-sm"
+                      >
+                        🎥 Unirse
+                      </Link>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button

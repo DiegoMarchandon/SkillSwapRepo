@@ -101,7 +101,7 @@ export default function InstructorCalendar({ instructorId, skillId }) {
             const inMonth = isSameMonth(d, month);
 
             // DEBUG: Agregar console.log para verificar
-            console.log(`Día ${key}:`, list.length, 'slots');
+            // console.log(`Día ${key}:`, list.length, 'slots');
             return (
               <div key={idx} className={`min-h-[120px] border rounded-xl p-2 flex flex-col gap-2 ${inMonth ? 'bg-gray-50 dark:bg-gray-800/60' : 'bg-gray-100/50 dark:bg-gray-800/20 text-gray-400'}`}>
                 <div className="flex items-center justify-between">

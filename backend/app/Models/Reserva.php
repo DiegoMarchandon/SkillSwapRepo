@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class Reserva extends Model
 {
@@ -46,5 +47,22 @@ class Reserva extends Model
     public function alumno()
     {
         return $this->belongsTo(User::class, 'alumno_id');
+    }
+
+        protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($reserva) {
+            if ($reserva->estado === 'confirmada' && !$reserva->meeting_id) {
+                $reserva->meeting_id = 'meet-' . time() . '-' . Str::random(6);
+            }
+        });
+    }
+
+    // Método para obtener el enlace de la reunión
+    public function getMeetingLinkAttribute()
+    {
+        return url("/meeting/{$this->meeting_id}");
     }
 }

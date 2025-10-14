@@ -33,6 +33,20 @@ skillSwap/
 ├── docs/                   # Documentación del proyecto
 └── README.md
 
+/src/app/
+├── api/                           # API Routes 
+│   └── meeting/
+│       └── [meetingId]/
+│           ├── route.js           # GET /api/meeting/[meetingId]
+│           ├── start/
+│           │   └── route.js       # POST /api/meeting/[meetingId]/start
+│           └── status/
+│               └── route.js       # GET /api/meeting/[meetingId]/status
+└── meeting/
+    └── [meetingId]/
+        └── page.js                # GET /meeting/[meetingId]
+
+
 ## Incorporaciones sobre la marcha
 
 ### frame motion para animaciones 3D
