@@ -27,6 +27,11 @@ io.on("connection", (socket) => {
     socket.broadcast.emit("ice-candidate", data);
   });
 
+  socket.on("end-call", (data) => {
+    console.log("🔴 End-call recibido, haciendo broadcast...", data);
+    socket.broadcast.emit("end-call", data); // Broadcast a todos los demás clientes
+  })
+
   socket.on("disconnect", () => {
     console.log("Cliente desconectado:", socket.id);
   });

@@ -22,12 +22,14 @@ class Reserva extends Model
         'fin_real_utc',
         'duracion_real_min',
         'creditos_cobrados',
-        'habilidad_id'
+        'habilidad_id',
+        'meeting_started_at'
     ];
 
     protected $casts = [
         'inicio_real_utc' => 'datetime',
         'fin_real_utc'    => 'datetime',
+        'meeting_started_at' => 'datetime',
     ];
 
     public function habilidad()

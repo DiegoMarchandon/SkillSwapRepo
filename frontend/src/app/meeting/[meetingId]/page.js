@@ -68,7 +68,7 @@ export default function MeetingPage() {
           const { data } = await api.get(`/meeting/${meetingId}/status`);
           console.log('📡 Status check:', data);
           
-          if (data.meetingStarted || data.estado  === 'en_curso' ) {
+          if (data.started || data.estado  === 'en_curso' ) {
             console.log('✅ Reunión iniciada! Redirigiendo alumno...');
             setMeetingStarted(true);
             initializeWebRTC(reserva, isInstructor);
@@ -191,7 +191,11 @@ export default function MeetingPage() {
                   {reserva.other_user.name} - {reserva.other_user.email}
                 </p>
                 <p className="text-sm mt-2">
-                  Estado: <span className="text-orange-600">Esperando...</span>
+                  Estado: {
+                    waitingRoomStatus.both_connected ?  
+                    <span className="text-green-600">Conectados</span>
+                    : <span className="text-orange-600">Esperando...</span>  
+                  }
                 </p>
               </div>
             </div>

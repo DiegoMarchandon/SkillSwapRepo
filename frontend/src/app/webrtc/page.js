@@ -18,11 +18,10 @@ export default function WebRTCPage() {
   const { startCall } = useStartCall(); // ✅ corregido
   const searchParams = useSearchParams();
   const meetingId = searchParams.get('meeting_id');
-  const currentUserId = searchParams.get('current_user_id');
-  const otherUserId = searchParams.get('other_user_id');
+  const currentUserId = searchParams.get('student_id');
+  const otherUserId = searchParams.get('teacher_id');
 
   // Obtener receiverId y usuarioHabilidadId de la URL
-  const receiverId = searchParams.get('receiver_id');
   const usuarioHabilidadId = searchParams.get('usuario_habilidad_id');
 
 
@@ -123,6 +122,66 @@ export default function WebRTCPage() {
       }
     });
 
+    // Escuchar evento de finalización de llamada
+    socketRef.current.on('end-call', ({ meetingId: endedMeetingId }) => {
+      if (endedMeetingId === meetingId) {
+        console.log('📢 Recibido evento end-call, finalizando llamada...');
+        
+        // Limpiar recursos
+        stopCollecting();
+        if (localVideoRef.current?.srcObject) {
+          localVideoRef.current.srcObject.getTracks().forEach(track => track.stop());
+        }
+        if (pcRef.current) pcRef.current.close();
+        if (socketRef.current) socketRef.current.disconnect();
+        
+        // Redirigir a home
+        window.location.href = '/';
+      }
+    });
+
+
+    // 🟢 Iniciar llamada automáticamente
+    const startCallAutomatically = async () => {
+      if (!otherUserId) {
+        console.error('❌ No otherUserId available:', otherUserId);
+        return;
+      }
+
+      console.log('🟢 Iniciando llamada automáticamente con:', otherUserId);
+      setIsCaller(true);
+
+      try {
+        const callId = await startCall(otherUserId, usuarioHabilidadId);
+        localStorage.setItem('call_id', callId);
+
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevice = devices.find(d => d.kind === 'videoinput' && d.label.includes('Integrated'))?.deviceId;
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { deviceId: videoDevice ? { exact: videoDevice } : undefined },
+          audio: true
+        });
+
+        stream.getTracks().forEach(track => pcRef.current.addTrack(track, stream));
+        localVideoRef.current.srcObject = stream;
+
+        const offer = await pcRef.current.createOffer();
+        await pcRef.current.setLocalDescription(offer);
+
+        socketRef.current.emit('offer', { offer, call_id: callId });
+        startCollecting();
+
+        console.log('✅ Llamada iniciada automáticamente');
+
+      } catch (err) {
+        console.error('❌ Error al iniciar la llamada automáticamente:', err);
+      }
+    };
+
+    // Ejecutar después de configurar Socket.io
+    setTimeout(startCallAutomatically, 1000);
+
     return () => {
       if (statsIntervalRef.current) clearInterval(statsIntervalRef.current);
       
@@ -136,93 +195,70 @@ export default function WebRTCPage() {
         socketRef.current = null;
       }
     };
+
+
+
   }, []);
-
-  // 🟢 Iniciar llamada
-  const handleStartCall = async () => {
-    
-    if (!otherUserId) {
-      alert('Error: No se especificó un receptor para la llamada');
-      return;
-    }
-
-    setIsCaller(true);
-
-    try{
-      // Crear la llamada en backend y obtener call_id
-      const callId = await startCall(otherUserId,usuarioHabilidadId); // se puede ajustar para pasar el receptor real
-
-      localStorage.setItem('call_id', callId);
-  
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevice = devices.find(d => d.kind === 'videoinput' && d.label.includes('Integrated'))?.deviceId;
-  
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: videoDevice ? { exact: videoDevice } : undefined },
-        audio: true
-      });
-  
-      stream.getTracks().forEach(track => pcRef.current.addTrack(track, stream));
-      localVideoRef.current.srcObject = stream;
-  
-      const offer = await pcRef.current.createOffer();
-      await pcRef.current.setLocalDescription(offer);
-  
-      socketRef.current.emit('offer', { offer, call_id: callId });
-  
-      startCollecting();
-
-    } catch (err) {
-      console.error('Error al iniciar la llamada:', err);
-      throw err;
-    }
-  };
 
   // 🔴 Terminar llamada
   const endCall = async () => {
     stopCollecting();
-
-    const metrics = metricsRef.current;
-    if (!metrics.length) {
-      console.log("No hay métricas para enviar");
-      return;
-    }
-
-    // Preparamos el payload transformando cada métrica para que tenga las claves que espera Laravel
-  const payload = {
-    call_id: parseInt(localStorage.getItem('call_id')), // asegurarse que es un integer
-    metrics: metrics.map(m => ({
-      // timestamp: m.timestamp ?? Date.now(),
-      // timestamp: new Date(m.timestamp).toISOString().slice(0,19).replace('T', ' '),
-      timestamp: Math.floor(Number(m.timestamp)/1000),
-      bytesSent: m.bytesSent ?? 0,
-      bytesReceived: m.bytesReceived ?? 0,
-      framesPerSecond: m.framesPerSecond ?? 0,
-      roundTripTime: m.roundTripTime ?? 0,
-      packetsLost: m.packetsLost ?? 0,
-      jitter: m.jitter ?? 0
-    }))
-  };
-
-  console.log("Payload para enviar:", JSON.stringify(payload, null, 2)); // Debug: imprimir el payload);
-
+    console.log('🔴 Terminando llamada...');
     try {
-      const { data } = await api.post('/call-metrics', payload);
-      console.log("Métricas enviadas al backend:", data);
-    } catch (error) {
-      console.error("Error al enviar las métricas:", error);
+      // 1. Actualizar meeting_ended_at en el backend
+      await api.post(`/meeting/${meetingId}/end`); // ✅ corregido
+
+      // 2. Notificar a TODOS los participantes vía Socket.io
+      socketRef.current.emit('end-call', {meetingId});
+    }catch (error){
+      console.error('Error actualizando meeting_ended_at en el backend:', error);
     }
 
-    // Detener los tracks locales (cámara y micrófono)
+    // 3. Métricas 
+    stopCollecting();
+    const metrics = metricsRef.current;
+
+    if(metrics.length){
+        // Preparamos el payload transformando cada métrica para que tenga las claves que espera Laravel
+      const payload = {
+        call_id: parseInt(localStorage.getItem('call_id')), // asegurarse que es un integer
+        metrics: metrics.map(m => ({
+          // timestamp: m.timestamp ?? Date.now(),
+          // timestamp: new Date(m.timestamp).toISOString().slice(0,19).replace('T', ' '),
+          timestamp: Math.floor(Number(m.timestamp)/1000),
+          bytesSent: m.bytesSent ?? 0,
+          bytesReceived: m.bytesReceived ?? 0,
+          framesPerSecond: m.framesPerSecond ?? 0,
+          roundTripTime: m.roundTripTime ?? 0,
+          packetsLost: m.packetsLost ?? 0,
+          jitter: m.jitter ?? 0
+        }))
+      };
+
+      console.log("Payload para enviar:", JSON.stringify(payload, null, 2)); // Debug: imprimir el payload);
+  
+      try {
+        const { data } = await api.post('/call-metrics', payload);
+        console.log("Métricas enviadas al backend:", data);
+      } catch (error) {
+        console.error("Error al enviar las métricas:", error);
+      }
+
+    }
+
+
+    // 4. Limpiar recursos WebRTC: Detener los tracks locales (cámara y micrófono) 
     if (localVideoRef.current?.srcObject) {
       localVideoRef.current.srcObject.getTracks().forEach(track => track.stop());
     }
-
     // Cerrar la conexión WebRTC y Socket
     if (pcRef.current) pcRef.current.close();
     if (socketRef.current) socketRef.current.disconnect();
 
-    alert('Llamada finalizada. Revisa la consola para ver las métricas.');
+    // 5. redirigir al home
+    console.log('✅ Redirigiendo al home...');
+    // router.push('/');
+    window.location.href = '/'; 
   };
 
   return (
@@ -232,12 +268,12 @@ export default function WebRTCPage() {
         <video ref={localVideoRef} autoPlay playsInline muted className="w-1/2 border rounded" />
         <video ref={remoteVideoRef} autoPlay playsInline className="w-1/2 border rounded" />
       </div>
-      <button
+      {/* <button
         onClick={handleStartCall}
         className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 m-3"
       >
         Iniciar llamada
-      </button>
+      </button> */}
       <button
         onClick={endCall}
         className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 m-3"

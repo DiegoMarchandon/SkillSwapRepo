@@ -32,8 +32,23 @@ class MeetingController extends Controller
         }
 
         // Guardar en cache que el usuario está en la sala (5 minutos)
-        $cacheKey = "meeting-{$meetingId}-{$user->id}";
+        $cacheKey = "meeting:{$meetingId}:user:{$user->id}";
+        
+        // DEBUG: Ver qué se está guardando
+        Log::info("JOIN WAITING ROOM - Saving to cache", [
+            'meeting_id' => $meetingId,
+            'user_id' => $user->id,
+            'cache_key' => $cacheKey,
+            'cache_driver' => config('cache.default')
+        ]);
         Cache::put($cacheKey, true, 300); // 5 minutos
+
+        // Verificar que se guardó
+        $savedValue = Cache::get($cacheKey);
+        Log::info("JOIN WAITING ROOM - Cache saved verification", [
+            'cache_key' => $cacheKey,
+            'saved_value' => $savedValue ? 'YES' : 'NO'
+        ]);
 
         // Devolver una respuesta exitosa si el usuario se ha unido a la sala
         return response()->json(['success' => true]);
@@ -87,6 +102,12 @@ class MeetingController extends Controller
     {
         $reserva = Reserva::where('meeting_id', $meetingId)->firstOrFail();
 
+        Log::info("BEFORE UPDATE - meeting_started_at:", [
+            'current_value' => $reserva->meeting_started_at,
+            'new_value' => now(),
+            'reserva_id' => $reserva->id
+        ]);
+
         // Solo el instructor puede iniciar
         if ($request->user()->id !== $reserva->instructor_id) {
             return response()->json(['error' => 'Unauthorized'], 403);
@@ -95,6 +116,14 @@ class MeetingController extends Controller
         $reserva->update([
             'meeting_started_at' => now(),
             'estado' => 'en_curso'
+        ]);
+        $reserva->save();
+        
+        // Verificar que se actualizó
+        $reserva->refresh();
+        Log::info("AFTER UPDATE - meeting_started_at:", [
+            'new_estado' => $reserva->estado,
+            'new_meeting_started_at' => $reserva->meeting_started_at
         ]);
 
         return response()->json(['success' => true]);
@@ -151,12 +180,23 @@ class MeetingController extends Controller
             return response()->json(['error' => 'No access'], 403);
         }
     
-        $reserva->update([
-            'meeting_started_at' => !is_null($reserva->meeting_started_at), // ← ESTE es el campo importante
+        // DEBUG: Ver estado real de la reunión
+        Log::info("STATUS CHECK - Meeting: {$meetingId}", [
+            'user_id' => $user->id,
+            'meeting_started_at' => $reserva->meeting_started_at,
+            'estado' => $reserva->estado,
+            'started' => !is_null($reserva->meeting_started_at)
+        ]);
+
+        // $reserva->update([
+        //     'meeting_started_at' => !is_null($reserva->meeting_started_at), // ← ESTE es el campo importante
+        //     'estado' => $reserva->estado
+        // ]);
+    
+        return response()->json(['success' => true,
+            'started' => !is_null($reserva->meeting_started_at),
             'estado' => $reserva->estado
         ]);
-    
-        return response()->json(['success' => true]);
     }
 
     public function meetingStatus(string $meetingId): JsonResponse
@@ -174,4 +214,22 @@ class MeetingController extends Controller
         ]);
     }
 
+    public function end(Request $request, string $meetingId): JsonResponse
+    {
+        $reserva = Reserva::where('meeting_id', $meetingId)->firstOrFail();
+
+        // Verificar que el usuario tenga acceso
+        $user = $request->user();
+        if ($user->id !== $reserva->instructor_id && $user->id !== $reserva->alumno_id) {
+            return response()->json(['error' => 'No access'], 403);
+        }
+
+        $reserva->update([
+            'meeting_ended_at' => now(),
+            'estado' => 'finalizada'
+        ]);
+
+        return response()->json(['success' => true]);
+
+    }
 }
