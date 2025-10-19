@@ -70,6 +70,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/meeting/{meetingId}', [MeetingController::class, 'show']);
     Route::post('/meeting/{meetingId}/start', [MeetingController::class, 'start']);
     Route::get('/meeting/{meetingId}/status', [MeetingController::class, 'status']);
+    Route::post('/meeting/{meetingId}/join-waiting-room', [MeetingController::class, 'joinWaitingRoom']);
+    Route::get('/meeting/{meetingId}/waiting-room-status', [MeetingController::class, 'getWaitingRoomStatus']);
 });
 
 Route::get('/profesores/buscar', [ProfesoresController::class, 'searchTeachers']);

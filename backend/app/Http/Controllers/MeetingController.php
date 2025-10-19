@@ -6,29 +6,80 @@ use App\Models\Reserva;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class MeetingController extends Controller
 {
-    public function join($meetingId)
+
+    /**
+     * Join the waiting room for a meeting.
+     *
+     * @param Request $request
+     * @param string $meetingId
+     * @return JsonResponse
+     */
+    
+    public function joinWaitingRoom(Request $request, string $meetingId):JsonResponse
     {
         // Buscar la reserva por meeting_id
         $reserva = Reserva::where('meeting_id', $meetingId)->firstOrFail();
-        
-        // Verificar que el usuario tenga acceso
-        $user = Auth::user();
-        if ($user->id !== $reserva->instructor_id && $user->id !== $reserva->alumno_id) {
-            abort(403, 'No tienes acceso a esta reunión');
+        $user = $request->user();
+
+        // Verificar que el usuario tenga acceso (instructor o alumno)
+        if($user->id !== $reserva->instructor_id && $user->id !== $reserva->alumno_id) {
+            return response()->json(['error' => 'No access'], 403);
         }
 
-        // Determinar el rol del usuario en la reunión
-        $isInstructor = $user->id === $reserva->instructor_id;
-        $otherUser = $isInstructor ? $reserva->alumno : $reserva->instructor;
+        // Guardar en cache que el usuario está en la sala (5 minutos)
+        $cacheKey = "meeting-{$meetingId}-{$user->id}";
+        Cache::put($cacheKey, true, 300); // 5 minutos
 
-        return view('meeting.join', [
-            'reserva' => $reserva,
-            'isInstructor' => $isInstructor,
-            'otherUser' => $otherUser,
-            'meetingId' => $meetingId
+        // Devolver una respuesta exitosa si el usuario se ha unido a la sala
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * Devuelve el estado actual de la sala de espera.
+     * Si el instructor y el alumno están conectados, devuelve true en "both_connected".
+     * Si solo el instructor o el alumno están conectados, devuelve true en "instructor_connected" o "alumno_connected" respectivamente.
+     * Si ni el instructor ni el alumno están conectados, devuelve false en "both_connected".
+     * Devuelve el rol del usuario actual en "current_user_role".
+     *
+     * @param Request $request
+     * @param string $meetingId
+     * @return JsonResponse
+     */
+    public function getWaitingRoomStatus(Request $request, string $meetingId): JsonResponse
+    {
+        // Buscar la reserva por meeting_id
+        $reserva = Reserva::where('meeting_id', $meetingId)->firstOrFail();
+        $user = $request->user();
+
+        // Verificar que el usuario tenga acceso (instructor o alumno)
+        if($user->id !== $reserva->instructor_id && $user->id !== $reserva->alumno_id) {
+            return response()->json(['error' => 'No access'], 403);
+        }
+
+        // Verificar presencia real en cache
+        $instructorConnected = Cache::get("meeting:{$meetingId}:user:{$reserva->instructor_id}");
+        $alumnoConnected = Cache::get("meeting:{$meetingId}:user:{$reserva->alumno_id}");
+        $isInstructor = $user->id === $reserva->instructor_id;
+
+        // LOG REAL - ver en storage/logs/laravel.log
+        Log::info("PRESENCE DEBUG - Meeting: {$meetingId}", [
+            'instructor_id' => $reserva->instructor_id,
+            'alumno_id' => $reserva->alumno_id,
+            'instructor_connected' => $instructorConnected ? 'YES' : 'NO',
+            'alumno_connected' => $alumnoConnected ? 'YES' : 'NO',
+            'cache_keys' => [$instructorConnected, $alumnoConnected]
+        ]);
+
+        return response()->json([
+            'instructor_connected' => (bool) $instructorConnected,
+            'alumno_connected' => (bool) $alumnoConnected,
+            'both_connected' => $instructorConnected && $alumnoConnected,
+            'current_user_role' => $isInstructor ? 'instructor' : 'alumno'
         ]);
     }
 
@@ -70,10 +121,12 @@ class MeetingController extends Controller
                 'estado' => $reserva->estado,
                 'meeting_started_at' => $reserva->meeting_started_at,
                 'current_user' => [
+                    'user_id' => $isInstructor ? $reserva->alumno->id : $reserva->instructor->id,
                     'name' => $user->name,
                     'email' => $user->email,
                 ],
                 'other_user' => [
+                    'user_id' => $isInstructor ? $reserva->instructor->id : $reserva->alumno->id,
                     'name' => $isInstructor ? $reserva->alumno->name : $reserva->instructor->name,
                     'email' => $isInstructor ? $reserva->alumno->email : $reserva->instructor->email,
                 ]
@@ -104,6 +157,21 @@ class MeetingController extends Controller
         ]);
     
         return response()->json(['success' => true]);
+    }
+
+    public function meetingStatus(string $meetingId): JsonResponse
+    {
+        $reserva = Reserva::where('meeting_id', $meetingId)->first();
+        
+        if (!$reserva) {
+            return response()->json(['error' => 'Meeting not found'], 404);
+        }
+
+        return response()->json([
+            'meeting_started' => !is_null($reserva->meeting_started_at),
+            'estado' => $reserva->estado,
+            'started_at' => $reserva->meeting_started_at
+        ]);
     }
 
 }

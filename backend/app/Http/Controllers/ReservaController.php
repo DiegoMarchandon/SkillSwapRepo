@@ -91,6 +91,8 @@ class ReservaController extends Controller
                     'id'         => $res->id,
                     'estado'     => $res->estado,
                     'meeting_id' => $res->meeting_id,
+                    'instructor_id' => $res->instructor_id, // ← AGREGAR ESTO
+                    'alumno_id'     => $res->alumno_id,     // ← AGREGAR ESTO
                     'instructor' => [
                         'id'    => $res->instructor->id,
                         'name'  => $res->instructor->name,

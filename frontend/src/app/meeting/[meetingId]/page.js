@@ -12,12 +12,53 @@ export default function MeetingPage() {
   const [loading, setLoading] = useState(true);
   const [meetingStarted, setMeetingStarted] = useState(false);
   const [isInstructor, setIsInstructor] = useState(false);
+  const [waitingRoomStatus, setWaitingRoomStatus] = useState({
+    instructor_connected: false,
+    alumno_connected: false,
+    both_connected:false
+  });
 
   useEffect(() => {
     loadMeetingData();
   }, [meetingId]);
 
-  // Polling para alumnos con axios
+    // 1. REGISTRAR PRESENCIA AL CARGAR
+    useEffect(() => {
+      const registerPresence = async () => {
+        try {
+          await api.post(`/meeting/${meetingId}/join-waiting-room`);
+        } catch (error) {
+          console.error('Error registrando presencia:', error);
+        }
+      };
+  
+      if (reserva) {
+        registerPresence();
+        
+        // Re-registrar cada 2 minutos
+        const interval = setInterval(registerPresence, 120000);
+        return () => clearInterval(interval);
+      }
+    }, [meetingId, reserva]);
+  
+    // 2. POLLING PARA ESTADO DE SALA
+    useEffect(() => {
+      const checkWaitingRoomStatus = async () => {
+        try {
+          const { data } = await api.get(`/meeting/${meetingId}/waiting-room-status`);
+          setWaitingRoomStatus(data);
+        } catch (error) {
+          console.error('Error verificando estado de sala:', error);
+        }
+      };
+  
+      if (reserva && !meetingStarted) {
+        const interval = setInterval(checkWaitingRoomStatus, 3000);
+        return () => clearInterval(interval);
+      }
+    }, [meetingId, reserva, meetingStarted]);
+
+  // 3. POLLING PARA ALUMNOS
   useEffect(() => {
     if (!isInstructor && !meetingStarted && reserva) {
       console.log('🔄 Iniciando polling para alumno...');
@@ -27,11 +68,12 @@ export default function MeetingPage() {
           const { data } = await api.get(`/meeting/${meetingId}/status`);
           console.log('📡 Status check:', data);
           
-          if (data.success) {
+          if (data.meetingStarted || data.estado  === 'en_curso' ) {
             console.log('✅ Reunión iniciada! Redirigiendo alumno...');
             setMeetingStarted(true);
-            initializeWebRTC();
+            initializeWebRTC(reserva, isInstructor);
             clearInterval(interval);
+            console.log(data);
           }
         } catch (error) {
           console.error('❌ Error checking meeting status:', error);
@@ -48,6 +90,7 @@ export default function MeetingPage() {
       setReserva(data.reserva);
       setIsInstructor(data.isInstructor);
       setMeetingStarted(data.meetingStarted);
+      console.log("hola");
     } catch (error) {
       console.error('Error loading meeting:', error);
     } finally {
@@ -57,9 +100,16 @@ export default function MeetingPage() {
 
   async function startMeeting() {
     try {
+
+      // Verificar que ambos estén conectados
+      if(isInstructor && !waitingRoomStatus.both_connected){
+        alert('Esperando a que los alumnos se conecten...');
+        return;
+      }
+
       await api.post(`/meeting/${meetingId}/start`);
       setMeetingStarted(true);
-      initializeWebRTC();
+      initializeWebRTC(reserva, isInstructor);
     } catch (error) {
       console.error('Error starting meeting:', error);
     }
@@ -70,22 +120,22 @@ export default function MeetingPage() {
     alert('Enlace copiado al portapapeles!');
   }
 
-  function initializeWebRTC() {
+  function initializeWebRTC(reserva, isInstructor) {
     
-    const UserId = reserva.instructor_id;
-    const OtherUserId = reserva.alumno_id;
+    const studentId = isInstructor ? reserva.current_user.user_id : reserva.other_user.user_id;
+    const teacherId = isInstructor ? reserva.other_user.user_id : reserva.current_user.user_id;
     // Aquí integras tu WebRTC component existente
     console.log('Inicializando WebRTC...');
     
-    console.log('🔍 IDs para WebRTC:', {
-      UserId,
-      OtherUserId,
-      instructorId: reserva.instructor_id,
-      alumnoId: reserva.alumno_id
-    });
-    
+    if (!studentId || !teacherId) {
+      console.error('❌ ERROR: IDs no disponibles.', reserva);
+      console.log(reserva);
+      alert('Error: Información de usuario no disponible. Recarga la página.');
+      return;
+    }
+
     // Redirigir a tu página WebRTC existente con el meeting_id como parámetro
-    window.location.href = `/webrtc?meeting_id=${meetingId}&current_user_id=${UserId}&other_user_id=${OtherUserId}`;
+    window.location.href = `/webrtc?meeting_id=${meetingId}&student_id=${studentId}&teacher_id=${teacherId}`;
   }
 
   if (loading) {
@@ -151,9 +201,13 @@ export default function MeetingPage() {
               {isInstructor ? (
                 <button
                   onClick={startMeeting}
-                  className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-semibold"
-                >
-                  🎬 Iniciar Reunión
+                  disabled={!waitingRoomStatus.both_connected}
+                  className={`px-6 py-3 rounded-lg font-semibold ${
+                  waitingRoomStatus.both_connected
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                }`}>
+                  {waitingRoomStatus.both_connected ? '🎬 Iniciar Reunión' : '⏳ Esperando al alumno...'}
                 </button>
               ) : (
                 <div className="px-6 py-3 bg-gray-100 text-gray-600 rounded-lg">
@@ -168,6 +222,15 @@ export default function MeetingPage() {
                 📋 Copiar Enlace
               </button>
             </div>
+
+            {/* Mensajes con estado de conexión */}
+            {!isInstructor && (
+              <div className="px-6 py-3 bg-gray-100 text-gray-600 rounded-lg">
+                {waitingRoomStatus.both_connected 
+                  ? '✅ Ambos conectados - Esperando que el instructor inicie...' 
+                  : '⏳ Esperando que el instructor se conecte...'}
+              </div>
+            )}
 
             {/* Información de la reunión */}
             <div className="bg-gray-50 rounded-xl p-4">
