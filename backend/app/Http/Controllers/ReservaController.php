@@ -54,17 +54,14 @@ class ReservaController extends Controller
             ]);
         });
 
-        // 🔔 Notificación al INSTRUCTOR: “te reservaron”
         $joinUrl = rtrim(env('FRONTEND_URL', 'http://localhost:3000'), '/')
-            . "/webrtc?meeting_id={$reserva->meeting_id}"
-            . "&current_user_id={$reserva->instructor_id}"
-            . "&other_user_id={$reserva->alumno_id}";
+            . "/meeting/{$reserva->meeting_id}";
 
         Notify::send($reserva->instructor_id, 'reserva.creada', [
             'reserva_id' => $reserva->id,
             'alumno'     => ['id' => $reserva->alumno_id, 'name' => $reserva->alumno->name ?? ''],
             'meeting_id' => $reserva->meeting_id,
-            'join_url'   => $joinUrl,
+            'join_url'   => $joinUrl, // ← ahora apunta a /meeting/:id
         ]);
 
         return response()->json(['data' => $reserva], 201);

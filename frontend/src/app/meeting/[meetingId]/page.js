@@ -120,23 +120,22 @@ export default function MeetingPage() {
     alert('Enlace copiado al portapapeles!');
   }
 
-  function initializeWebRTC(reserva, isInstructor) {
-    
-    const studentId = isInstructor ? reserva.current_user.user_id : reserva.other_user.user_id;
-    const teacherId = isInstructor ? reserva.other_user.user_id : reserva.current_user.user_id;
-    // Aquí integras tu WebRTC component existente
-    console.log('Inicializando WebRTC...');
-    
-    if (!studentId || !teacherId) {
-      console.error('❌ ERROR: IDs no disponibles.', reserva);
-      console.log(reserva);
-      alert('Error: Información de usuario no disponible. Recarga la página.');
-      return;
-    }
 
-    // Redirigir a tu página WebRTC existente con el meeting_id como parámetro
-    window.location.href = `/webrtc?meeting_id=${meetingId}&student_id=${studentId}&teacher_id=${teacherId}`;
+function initializeWebRTC() {
+  const currentUserId = isInstructor ? reserva.instructor_id : reserva.alumno_id;
+  const otherUserId   = isInstructor ? reserva.alumno_id     : reserva.instructor_id;
+
+  if (!currentUserId || !otherUserId) {
+    alert('Error: IDs de usuario no disponibles. Recarga la página.');
+    return;
   }
+
+  window.location.href =
+    `/webrtc?meeting_id=${meetingId}` +
+    `&current_user_id=${currentUserId}` +
+    `&other_user_id=${otherUserId}`;
+}
+
 
   if (loading) {
     return (

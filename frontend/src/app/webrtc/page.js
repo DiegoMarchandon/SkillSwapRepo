@@ -20,6 +20,7 @@ export default function WebRTCPage() {
   const meetingId = searchParams.get('meeting_id');
   const currentUserId = searchParams.get('student_id');
   const otherUserId = searchParams.get('teacher_id');
+  
 
   // Obtener receiverId y usuarioHabilidadId de la URL
   const usuarioHabilidadId = searchParams.get('usuario_habilidad_id');
