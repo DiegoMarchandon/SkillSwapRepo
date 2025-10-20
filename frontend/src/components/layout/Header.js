@@ -1,3 +1,6 @@
+'use client';
+
+
 import Link from 'next/link';
 import Navbar from "./Navbar";
 import { useAuth } from '../../context/AuthContext';

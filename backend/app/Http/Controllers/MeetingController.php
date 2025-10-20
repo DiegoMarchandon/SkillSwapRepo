@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use App\Services\Notify;
+
 
 class MeetingController extends Controller
 {
@@ -19,21 +21,21 @@ class MeetingController extends Controller
      * @param string $meetingId
      * @return JsonResponse
      */
-    
-    public function joinWaitingRoom(Request $request, string $meetingId):JsonResponse
+
+    public function joinWaitingRoom(Request $request, string $meetingId): JsonResponse
     {
         // Buscar la reserva por meeting_id
         $reserva = Reserva::where('meeting_id', $meetingId)->firstOrFail();
         $user = $request->user();
 
         // Verificar que el usuario tenga acceso (instructor o alumno)
-        if($user->id !== $reserva->instructor_id && $user->id !== $reserva->alumno_id) {
+        if ($user->id !== $reserva->instructor_id && $user->id !== $reserva->alumno_id) {
             return response()->json(['error' => 'No access'], 403);
         }
 
         // Guardar en cache que el usuario está en la sala (5 minutos)
         $cacheKey = "meeting:{$meetingId}:user:{$user->id}";
-        
+
         // DEBUG: Ver qué se está guardando
         Log::info("JOIN WAITING ROOM - Saving to cache", [
             'meeting_id' => $meetingId,
@@ -72,7 +74,7 @@ class MeetingController extends Controller
         $user = $request->user();
 
         // Verificar que el usuario tenga acceso (instructor o alumno)
-        if($user->id !== $reserva->instructor_id && $user->id !== $reserva->alumno_id) {
+        if ($user->id !== $reserva->instructor_id && $user->id !== $reserva->alumno_id) {
             return response()->json(['error' => 'No access'], 403);
         }
 
@@ -118,13 +120,25 @@ class MeetingController extends Controller
             'estado' => 'en_curso'
         ]);
         $reserva->save();
-        
+
         // Verificar que se actualizó
         $reserva->refresh();
         Log::info("AFTER UPDATE - meeting_started_at:", [
             'new_estado' => $reserva->estado,
             'new_meeting_started_at' => $reserva->meeting_started_at
         ]);
+
+        $joinUrl = rtrim(env('FRONTEND_URL', 'http://localhost:3000'), '/')
+            . "/webrtc?meeting_id={$reserva->meeting_id}"
+            . "&current_user_id={$reserva->alumno_id}"
+            . "&other_user_id={$reserva->instructor_id}";
+
+        Notify::send($reserva->alumno_id, 'meeting.iniciada', [
+            'reserva_id' => $reserva->id,
+            'meeting_id' => $reserva->meeting_id,
+            'join_url'   => $joinUrl,
+        ]);
+
 
         return response()->json(['success' => true]);
     }
@@ -179,7 +193,7 @@ class MeetingController extends Controller
         if ($user->id !== $reserva->instructor_id && $user->id !== $reserva->alumno_id) {
             return response()->json(['error' => 'No access'], 403);
         }
-    
+
         // DEBUG: Ver estado real de la reunión
         Log::info("STATUS CHECK - Meeting: {$meetingId}", [
             'user_id' => $user->id,
@@ -192,8 +206,9 @@ class MeetingController extends Controller
         //     'meeting_started_at' => !is_null($reserva->meeting_started_at), // ← ESTE es el campo importante
         //     'estado' => $reserva->estado
         // ]);
-    
-        return response()->json(['success' => true,
+
+        return response()->json([
+            'success' => true,
             'started' => !is_null($reserva->meeting_started_at),
             'estado' => $reserva->estado
         ]);
@@ -202,7 +217,7 @@ class MeetingController extends Controller
     public function meetingStatus(string $meetingId): JsonResponse
     {
         $reserva = Reserva::where('meeting_id', $meetingId)->first();
-        
+
         if (!$reserva) {
             return response()->json(['error' => 'Meeting not found'], 404);
         }
@@ -230,6 +245,5 @@ class MeetingController extends Controller
         ]);
 
         return response()->json(['success' => true]);
-
     }
 }

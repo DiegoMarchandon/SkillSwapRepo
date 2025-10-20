@@ -16,6 +16,8 @@ use App\Http\Controllers\CallMetricsController;
 use App\Http\Controllers\CallController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\MeetingController;
+use App\Http\Controllers\NotificacionesController;
+
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login',    [AuthController::class, 'login']);
@@ -55,11 +57,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/calls/{id}', [CallController::class, 'show']);
     Route::post('/calls', [CallController::class, 'store']);
     Route::post('/call-metrics', [CallMetricsController::class, 'store']);
-    
+
     // Favoritos
     Route::delete('/favoritos/remove', [FavoriteController::class, 'destroy']);
     Route::post('/favoritos/agregar', [FavoriteController::class, 'store']);
-    
+
     // endpoins para el admin
     Route::get('/admin/dashboard-stats', [AdminController::class, 'dashboardStats']);
     Route::get('/admin/users', [AdminController::class, 'getUsers']);
@@ -73,6 +75,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/meeting/{meetingId}/join-waiting-room', [MeetingController::class, 'joinWaitingRoom']);
     Route::get('/meeting/{meetingId}/waiting-room-status', [MeetingController::class, 'getWaitingRoomStatus']);
     Route::post('/meeting/{meetingId}/end', [MeetingController::class, 'end']);
+
+    // Notificaciones
+
+    Route::get('/notificaciones',         [NotificacionesController::class, 'index']);
+    Route::get('/notificaciones/unread',  [NotificacionesController::class, 'unreadCount']);
+    Route::get('/notificaciones/latest',  [NotificacionesController::class, 'latest']);
+    Route::post('/notificaciones/{id}/read', [NotificacionesController::class, 'markRead']);
+    Route::post('/notificaciones/read-all',  [NotificacionesController::class, 'markAllRead']);
 });
 
 Route::get('/profesores/buscar', [ProfesoresController::class, 'searchTeachers']);
@@ -81,6 +91,3 @@ Route::get('/profesores/buscar', [ProfesoresController::class, 'searchTeachers']
 // Búsqueda pública
 Route::get('/buscar', BuscarHabilidadesController::class);
 Route::get('/health', fn() => response()->json(['ok' => true]));
-
-
-

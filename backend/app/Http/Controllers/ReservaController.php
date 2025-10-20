@@ -8,6 +8,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use App\Services\Notify;
+
 
 class ReservaController extends Controller
 {
@@ -36,18 +38,38 @@ class ReservaController extends Controller
 
             $slot->update(['estado' => 'tomada']);
 
+            // 🔹 Generar un meeting_id consistente para todo el flujo
+            $meetingId = 'meet-' . time() . '-' . Str::upper(Str::random(6));
+
             return Reserva::create([
                 'disponibilidad_id' => $slot->id,
                 'instructor_id'     => $slot->instructor_id,
                 'alumno_id'         => $userId,
                 'estado'            => 'confirmada',
                 'habilidad_id'      => $slot->habilidad_id,
-                'enlace_reunion'    => (string) Str::uuid(),
+                // mantener compatibilidad si ya usaban este campo:
+                'enlace_reunion'    => $meetingId,
+                // campo nuevo que usa el flujo de /meeting y /webrtc
+                'meeting_id'        => $meetingId,
             ]);
         });
 
+        // 🔔 Notificación al INSTRUCTOR: “te reservaron”
+        $joinUrl = rtrim(env('FRONTEND_URL', 'http://localhost:3000'), '/')
+            . "/webrtc?meeting_id={$reserva->meeting_id}"
+            . "&current_user_id={$reserva->instructor_id}"
+            . "&other_user_id={$reserva->alumno_id}";
+
+        Notify::send($reserva->instructor_id, 'reserva.creada', [
+            'reserva_id' => $reserva->id,
+            'alumno'     => ['id' => $reserva->alumno_id, 'name' => $reserva->alumno->name ?? ''],
+            'meeting_id' => $reserva->meeting_id,
+            'join_url'   => $joinUrl,
+        ]);
+
         return response()->json(['data' => $reserva], 201);
     }
+
 
     public function cancelar($id, Request $r)
     {
@@ -62,17 +84,35 @@ class ReservaController extends Controller
             throw ValidationException::withMessages(['id' => 'La reserva no se puede cancelar en este estado.']);
         }
 
+        $nuevoEstado = null;
+
         if (now()->lt($reserva->disponibilidad->inicio_utc)) {
-            DB::transaction(function () use ($reserva) {
+            DB::transaction(function () use ($reserva, &$nuevoEstado) {
                 $reserva->update(['estado' => 'cancelada']);
                 $reserva->disponibilidad->update(['estado' => 'libre']);
+                $nuevoEstado = 'cancelada';
             });
         } else {
             $reserva->update(['estado' => 'interrumpida']);
+            $nuevoEstado = 'interrumpida';
         }
+
+        //  Notificaciones (a ambos)
+        $tipo = $nuevoEstado === 'cancelada' ? 'reserva.cancelada' : 'reserva.interrumpida';
+
+        Notify::send($reserva->instructor_id, $tipo, [
+            'reserva_id' => $reserva->id,
+            'by'         => $user->id,
+        ]);
+
+        Notify::send($reserva->alumno_id, $tipo, [
+            'reserva_id' => $reserva->id,
+            'by'         => $user->id,
+        ]);
 
         return response()->json(['ok' => true]);
     }
+
 
     public function misReservas(Request $r)
     {
@@ -90,7 +130,7 @@ class ReservaController extends Controller
                 return [
                     'id'         => $res->id,
                     'estado'     => $res->estado,
-                    'meeting_id' => $res->meeting_id,
+                    'meeting_id' => $res->meeting_id ?? $res->enlace_reunion,
                     'instructor_id' => $res->instructor_id, // ← AGREGAR ESTO
                     'alumno_id'     => $res->alumno_id,     // ← AGREGAR ESTO
                     'instructor' => [

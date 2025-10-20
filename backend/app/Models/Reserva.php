@@ -23,7 +23,9 @@ class Reserva extends Model
         'duracion_real_min',
         'creditos_cobrados',
         'habilidad_id',
-        'meeting_started_at'
+        'meeting_started_at',
+        'meeting_id',
+        'meeting_ended_at'
     ];
 
     protected $casts = [
@@ -51,7 +53,7 @@ class Reserva extends Model
         return $this->belongsTo(User::class, 'alumno_id');
     }
 
-        protected static function boot()
+    protected static function boot()
     {
         parent::boot();
 
