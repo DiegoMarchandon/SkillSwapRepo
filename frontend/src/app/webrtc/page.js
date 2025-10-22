@@ -18,8 +18,8 @@ export default function WebRTCPage() {
   const { startCall } = useStartCall(); // ✅ corregido
   const searchParams = useSearchParams();
   const meetingId = searchParams.get('meeting_id');
-  const currentUserId = searchParams.get('student_id');
-  const otherUserId = searchParams.get('teacher_id');
+  const currentUserId = searchParams.get('current_user_id');
+  const otherUserId = searchParams.get('other_user_id');
   
 
   // Obtener receiverId y usuarioHabilidadId de la URL
