@@ -2,12 +2,12 @@
 
 import { motion } from "framer-motion";
 import { useState } from "react";
-import Header from "../../components/layout/Header";
+// import Header from "../../components/layout/Header";
 import Image from "next/image";
 import styles from "./page.module.css"
 
 // app/faq/page.js
-export default function FAQPage() {
+export default function FaqContainer() {
 
     const npcsImages = [
       "/people8bit/npc1.png",
@@ -43,33 +43,32 @@ export default function FAQPage() {
           "Actualmente la plataforma no se encuentra optimizada para dispositivos móviles. Pronto lo estará.",
       },
       {
-        question: "¿Puedo usar SkillSwap en mi celular?",
+        question: "¿Cómo funciona el intercambio de habilidades en SkillSwap?",
         answer:
-          "Actualmente la plataforma no se encuentra optimizada para dispositivos móviles. Pronto lo estará.",
+          "Vas a la sección 'mis habilidades'. Ingresás la/s habilidad/es que te gustaría aprender o enseñar. ",
       },
       {
-        question: "¿Puedo usar SkillSwap en mi celular?",
+        question: "¿Cuánto tiempo duran los intercambios o sesiones?",
         answer:
-          "Actualmente la plataforma no se encuentra optimizada para dispositivos móviles. Pronto lo estará.",
+          "Duran lo que se pacte previamente. Una vez que elijas una habilidad a aprender de determinado profesor, podés elegir una respectiva sesión con el horario y duración indicadas por el mismo",
       },
       {
-        question: "¿Puedo usar SkillSwap en mi celular?",
+        question: "¿Qué gano al usar SkillSwap si no hay dinero de por medio?",
         answer:
-          "Actualmente la plataforma no se encuentra optimizada para dispositivos móviles. Pronto lo estará.",
+          "Conocimiento y reconocimiento! Además de la ventaja de poder aprender sin pagar nada, también contamos con un sistema de rangos, rachas y rankings para los usuarios más destacados en la plataforma.",
       },
     ];
 
     return (
       <div>
-        <Header />
-        <section className="bg-gray-50 min-h-screen py-20 px-6">
+        <section className="bg-[#0a0a0a] min-h-screen py-20 px-6">
           <div style={{fontFamily: 'VT323'}} className="max-w-4xl mx-auto text-center mb-12">
             <motion.h2
               initial={{ opacity: 0, y: -30 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
               viewport={{ once: true }}
-              className="text-4xl font-extrabold text-gray-800 mb-4"
+              className="text-4xl font-extrabold text-gray-300 mb-4"
             >
               Preguntas Frecuentes
             </motion.h2>
@@ -78,7 +77,7 @@ export default function FAQPage() {
               whileInView={{ opacity: 1 }}
               transition={{ delay: 0.3, duration: 0.6 }}
               viewport={{ once: true }}
-              className="text-gray-600"
+              className="text-gray-500"
             >
               Descubrí las respuestas a las dudas más comunes sobre nuestra
               plataforma.
@@ -95,7 +94,7 @@ export default function FAQPage() {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.8, delay: index * 0.2 }}
                 viewport={{ once: false, amount: 0.3 }}
-                className="relative bg-white shadow-lg rounded-2xl p-4 border border-gray-100"
+                className="relative  shadow-lg rounded-2xl p-4 border border-gray-800"
               >
                 <div className={`${styles.bubbleLeft} relative w-full mb-5 h-24 bg-blue-200`}>
                   <Image src={npcsImages[index % npcsImages.length]} className="absolute bottom-2/3 right-2/2" alt="Pregunta" width={50} height={50} />
@@ -106,7 +105,7 @@ export default function FAQPage() {
 
                 <div className={`${styles.bubbleRight} relative w-full h-24 bg-cyan-200`}>
                   <Image src="/pet/BMO.png" className="rotate-y-180 absolute bottom-2/4 left-2/2" alt="Respuesta" width={60} height={60} />
-                  <p className="text-gray-600">{faq.answer}</p>
+                  <p className="text-gray-800">{faq.answer}</p>
                 </div>
               </motion.div>
 

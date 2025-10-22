@@ -1,0 +1,134 @@
+.pixel-sky-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, #99d1f9 0%, #1f9ccd 100%);
+  overflow: hidden;
+  z-index: 0;
+}
+
+.cloud-sprite {
+  position: absolute;
+  width: 90px;
+  height: 40px;
+  background: white;
+  image-rendering: pixelated;
+  /* Nube más orgánica y redondeada */
+  box-shadow: 
+    /* Base principal curva */
+    -8px -4px 0px 4px white,
+    -4px -8px 0px 4px white,
+    0px -10px 0px 4px white,
+    4px -8px 0px 4px white,
+    8px -4px 0px 4px white,
+    /* Extensión derecha suave */
+    12px -6px 0px 4px white,
+    16px -2px 0px 4px white,
+    /* Protuberancia central superior */
+    0px -14px 0px 4px white,
+    -4px -12px 0px 4px white,
+    4px -12px 0px 4px white;
+  filter: drop-shadow(2px 2px 3px rgba(0,0,0,0.1));
+  border-radius: 8px;
+}
+
+.cloud-large {
+  width: 150px;
+  height: 55px;
+  box-shadow: 
+    /* Base principal más ondulada */
+    -12px -6px 0px 4px white,
+    -8px -10px 0px 4px white,
+    -4px -12px 0px 4px white,
+    0px -14px 0px 4px white,
+    4px -12px 0px 4px white,
+    8px -10px 0px 4px white,
+    12px -6px 0px 4px white,
+    /* Extensiones laterales suaves */
+    16px -8px 0px 4px white,
+    20px -4px 0px 4px white,
+    -16px -8px 0px 4px white,
+    -20px -4px 0px 4px white,
+    /* Múltiples protuberancias superiores */
+    -8px -16px 0px 4px white,
+    -4px -18px 0px 4px white,
+    0px -20px 0px 4px white,
+    4px -18px 0px 4px white,
+    8px -16px 0px 4px white,
+    /* Protuberancia central más alta */
+    0px -24px 0px 4px white,
+    -2px -22px 0px 4px white,
+    2px -22px 0px 4px white;
+  filter: drop-shadow(3px 3px 4px rgba(0,0,0,0.15));
+  border-radius: 10px;
+}
+
+.cloud-medium {
+  width: 120px;
+  height: 48px;
+  box-shadow: 
+    /* Base curva y orgánica */
+    -10px -5px 0px 4px white,
+    -6px -9px 0px 4px white,
+    -2px -11px 0px 4px white,
+    2px -11px 0px 4px white,
+    6px -9px 0px 4px white,
+    10px -5px 0px 4px white,
+    /* Extensiones */
+    14px -7px 0px 4px white,
+    -14px -7px 0px 4px white,
+    /* Protuberancias superiores */
+    -4px -15px 0px 4px white,
+    0px -17px 0px 4px white,
+    4px -15px 0px 4px white,
+    /* Pico central */
+    0px -20px 0px 4px white;
+  filter: drop-shadow(2px 2px 3px rgba(0,0,0,0.12));
+  border-radius: 9px;
+}
+
+/* Variante de nube esponjosa */
+.cloud-fluffy {
+  width: 110px;
+  height: 45px;
+  box-shadow: 
+    /* Forma más circular y esponjosa */
+    -12px -8px 0px 4px white,
+    -6px -12px 0px 4px white,
+    0px -14px 0px 4px white,
+    6px -12px 0px 4px white,
+    12px -8px 0px 4px white,
+    /* Pompones adicionales */
+    -8px -16px 0px 4px white,
+    8px -16px 0px 4px white,
+    0px -20px 0px 4px white,
+    /* Base inferior suave */
+    -4px -4px 0px 4px white,
+    4px -4px 0px 4px white;
+  filter: drop-shadow(2px 2px 3px rgba(0,0,0,0.1));
+  border-radius: 12px;
+}
+
+/* Variante de nube alargada */
+.cloud-long {
+  width: 180px;
+  height: 42px;
+  box-shadow: 
+    /* Base larga y baja */
+    -20px -4px 0px 4px white,
+    -12px -8px 0px 4px white,
+    -4px -10px 0px 4px white,
+    4px -10px 0px 4px white,
+    12px -8px 0px 4px white,
+    20px -4px 0px 4px white,
+    /* Protuberancias superiores espaciadas */
+    -16px -12px 0px 4px white,
+    -8px -14px 0px 4px white,
+    0px -16px 0px 4px white,
+    8px -14px 0px 4px white,
+    16px -12px 0px 4px white;
+  filter: drop-shadow(2px 2px 3px rgba(0,0,0,0.1));
+  border-radius: 8px;
+}

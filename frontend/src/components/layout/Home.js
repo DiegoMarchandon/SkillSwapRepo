@@ -7,6 +7,7 @@ import { useAnimationFrame, useMotionValue } from "framer-motion";
 import OrbitFunction from "../../utils/mathUtils";
 import { useState, useEffect } from "react";
 import TypingContainer from "../home/TypingContainer";
+import FaqContainer from "../home/faq/FaqContainer";
 
 function Home() {
 
@@ -82,6 +83,9 @@ useEffect(() => {
       </div>
           <div className="h-14.5">
             <TypingContainer />
+          </div>
+          <div>
+            <FaqContainer />
           </div>
       <Footer />
     </div>
