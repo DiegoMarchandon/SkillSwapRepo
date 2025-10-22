@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Disponibilidad;
 use App\Models\Reserva;
+use App\Models\Resena;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -123,7 +124,12 @@ class ReservaController extends Controller
             ->where('alumno_id', $userId)
             ->orderByDesc('id')
             ->get()
-            ->map(function ($res) {
+            ->map(function ($res) use ($userId){
+                // Verificar si ya existe una reseña para esta reserva
+                $resenaExistente = \App\Models\Resena::where('reserva_id', $res->id)
+                ->where('emisor_id', $userId)
+                ->exists();
+
                 return [
                     'id'         => $res->id,
                     'estado'     => $res->estado,
@@ -139,6 +145,7 @@ class ReservaController extends Controller
                     'fin_utc'    => $res->disponibilidad->fin_utc->toISOString(),
                     'habilidad_id' => $res->disponibilidad->habilidad_id, // útil para la UI
                     // 'habilidad_nombre' => $res->habilidad?->nombre ?? null, // si cargás la relación
+                    'resena_existente' => $resenaExistente
                 ];
             });
 

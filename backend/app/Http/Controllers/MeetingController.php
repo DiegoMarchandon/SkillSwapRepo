@@ -26,12 +26,12 @@ class MeetingController extends Controller
 
         $cacheKey = "meeting:{$meetingId}:user:{$user->id}";
 
-        Log::info('JOIN WAITING ROOM', [
-            'meeting_id' => $meetingId,
-            'user_id'    => $user->id,
-            'cache_key'  => $cacheKey,
-            'driver'     => config('cache.default'),
-        ]);
+        // Log::info('JOIN WAITING ROOM', [
+        //     'meeting_id' => $meetingId,
+        //     'user_id'    => $user->id,
+        //     'cache_key'  => $cacheKey,
+        //     'driver'     => config('cache.default'),
+        // ]);
 
         Cache::put($cacheKey, true, 300); // 300s = 5 minutos
 
@@ -54,13 +54,13 @@ class MeetingController extends Controller
         $alumnoConnected     = Cache::get("meeting:{$meetingId}:user:{$reserva->alumno_id}") ? true : false;
         $isInstructor        = $user->id === $reserva->instructor_id;
 
-        Log::info('WAITING ROOM STATUS', [
-            'meeting_id'            => $meetingId,
-            'instructor_id'         => $reserva->instructor_id,
-            'alumno_id'             => $reserva->alumno_id,
-            'instructor_connected'  => $instructorConnected,
-            'alumno_connected'      => $alumnoConnected,
-        ]);
+        // Log::info('WAITING ROOM STATUS', [
+        //     'meeting_id'            => $meetingId,
+        //     'instructor_id'         => $reserva->instructor_id,
+        //     'alumno_id'             => $reserva->alumno_id,
+        //     'instructor_connected'  => $instructorConnected,
+        //     'alumno_connected'      => $alumnoConnected,
+        // ]);
 
         return response()->json([
             'instructor_connected' => $instructorConnected,
@@ -83,10 +83,10 @@ class MeetingController extends Controller
         }
 
         if (is_null($reserva->meeting_started_at)) {
-            Log::info('MEETING START', [
-                'reserva_id' => $reserva->id,
-                'meeting_id' => $meetingId,
-            ]);
+            // Log::info('MEETING START', [
+            //     'reserva_id' => $reserva->id,
+            //     'meeting_id' => $meetingId,
+            // ]);
 
             $reserva->update([
                 'meeting_started_at' => now(),
@@ -169,12 +169,12 @@ class MeetingController extends Controller
 
         $started = !is_null($reserva->meeting_started_at);
 
-        Log::info('MEETING STATUS', [
-            'meeting_id' => $meetingId,
-            'user_id'    => $user->id,
-            'started'    => $started,
-            'estado'     => $reserva->estado,
-        ]);
+        // Log::info('MEETING STATUS', [
+        //     'meeting_id' => $meetingId,
+        //     'user_id'    => $user->id,
+        //     'started'    => $started,
+        //     'estado'     => $reserva->estado,
+        // ]);
 
         return response()->json([
             'started' => $started,

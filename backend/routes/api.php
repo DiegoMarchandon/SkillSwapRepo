@@ -17,7 +17,7 @@ use App\Http\Controllers\CallController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\MeetingController;
 use App\Http\Controllers\NotificacionesController;
-
+use App\Http\Controllers\ResenaController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login',    [AuthController::class, 'login']);
@@ -76,8 +76,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/meeting/{meetingId}/waiting-room-status', [MeetingController::class, 'getWaitingRoomStatus']);
     Route::post('/meeting/{meetingId}/end', [MeetingController::class, 'end']);
 
-    // Notificaciones
+    // Reseñas
+    Route::get('/resenas/{sesionId}', [ResenaController::class, 'show']);
+    Route::post('/resenas', [ResenaController::class, 'store']);
 
+    // Notificaciones
     Route::get('/notificaciones',         [NotificacionesController::class, 'index']);
     Route::get('/notificaciones/unread',  [NotificacionesController::class, 'unreadCount']);
     Route::get('/notificaciones/latest',  [NotificacionesController::class, 'latest']);
