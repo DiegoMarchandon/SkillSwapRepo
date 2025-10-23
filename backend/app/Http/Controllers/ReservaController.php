@@ -116,38 +116,41 @@ class ReservaController extends Controller
     {
         $userId = $r->user()->id;
 
-        $items = \App\Models\Reserva::with([
+        $reservas = Reserva::with([
             'disponibilidad:id,inicio_utc,fin_utc,instructor_id,habilidad_id',
             'instructor:id,name,email',
-            // 'habilidad:id,nombre' // ← si querés devolver nombre de la habilidad (teniendo relación en el modelo)
         ])
             ->where('alumno_id', $userId)
             ->orderByDesc('id')
-            ->get()
-            ->map(function ($res) use ($userId){
-                // Verificar si ya existe una reseña para esta reserva
-                $resenaExistente = \App\Models\Resena::where('reserva_id', $res->id)
+            ->get();
+
+        $items = $reservas->map(function ($res) use ($userId) {
+            $disp = $res->disponibilidad; // puede ser null en datos viejos
+
+            // ¿ya calificó esta reserva?
+            $resenaExistente = Resena::where('reserva_id', $res->id)
                 ->where('emisor_id', $userId)
                 ->exists();
 
-                return [
-                    'id'         => $res->id,
-                    'estado'     => $res->estado,
-                    'meeting_id' => $res->meeting_id ?? $res->enlace_reunion,
-                    'instructor_id' => $res->instructor_id, // ← AGREGAR ESTO
-                    'alumno_id'     => $res->alumno_id,     // ← AGREGAR ESTO
-                    'instructor' => [
-                        'id'    => $res->instructor->id,
-                        'name'  => $res->instructor->name,
-                        'email' => $res->instructor->email,
-                    ],
-                    'inicio_utc' => $res->disponibilidad->inicio_utc->toISOString(),
-                    'fin_utc'    => $res->disponibilidad->fin_utc->toISOString(),
-                    'habilidad_id' => $res->disponibilidad->habilidad_id, // útil para la UI
-                    // 'habilidad_nombre' => $res->habilidad?->nombre ?? null, // si cargás la relación
-                    'resena_existente' => $resenaExistente
-                ];
-            });
+            return [
+                'id'            => $res->id,
+                'estado'        => $res->estado,
+                'meeting_id'    => $res->meeting_id ?? $res->enlace_reunion, // fallback
+                'instructor_id' => $res->instructor_id,
+                'alumno_id'     => $res->alumno_id,
+                'instructor'    => [
+                    'id'    => $res->instructor?->id,
+                    'name'  => $res->instructor?->name,
+                    'email' => $res->instructor?->email,
+                ],
+                // null-safe + método estable de Carbon
+                'inicio_utc'    => $disp?->inicio_utc?->toIso8601String(),
+                'fin_utc'       => $disp?->fin_utc?->toIso8601String(),
+                'habilidad_id'  => $disp?->habilidad_id,
+
+                'resena_existente' => $resenaExistente,
+            ];
+        });
 
         return response()->json(['data' => $items]);
     }

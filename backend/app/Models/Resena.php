@@ -10,7 +10,7 @@ class Resena extends Model
     use HasFactory;
 
     // Especificar el nombre de la tabla si no sigue la convención plural
-    protected $table = 'reseñas';
+    protected $table = 'resenas';
 
     protected $fillable = [
         'reserva_id',
