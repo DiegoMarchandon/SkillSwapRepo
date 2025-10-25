@@ -16,6 +16,10 @@ class AdminReportsController extends Controller
 {
     public function sessionReport(Request $request, Reserva $reserva)
     {
+        $user = $request->user();
+        if (!$user || !$user->is_admin) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
         try {
             $format = $request->query('format', 'html');
 

@@ -3,109 +3,180 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\Call;
-use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Log;
 
 class AdminController extends Controller
 {
     public function dashboardStats(Request $request)
     {
+        // Solo admin por ROL
+        if (!$request->user() || $request->user()->rol !== 'admin') {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
         $range = $request->query('range', 'today');
-        
-        $query = Call::when($range === 'today', function($q) {
-                $q->whereDate('created_at', today());
-            })
-            ->when($range === 'week', function($q) {
-                $q->where('created_at', '>=', now()->subWeek());
-            })
-            ->when($range === 'month', function($q) {
-                $q->where('created_at', '>=', now()->subMonth());
-            });
+
+        if (!Schema::hasTable('calls')) {
+            return response()->json([
+                'totalCalls'  => 0,
+                'activeCalls' => 0,
+                'avgDuration' => 0.0,
+                'avgQuality'  => 85,
+            ]);
+        }
+
+        $q = DB::table('calls');
+        if ($range === 'today')      $q->whereDate('created_at', today());
+        elseif ($range === 'week')   $q->where('created_at', '>=', now()->subWeek());
+        elseif ($range === 'month')  $q->where('created_at', '>=', now()->subMonth());
+
+        $total  = (clone $q)->count();
+        $active = (clone $q)->where('status', 'active')->count();
+        $avgDur = (float) ((clone $q)->avg('duration_seconds') ?? 0);
 
         return response()->json([
-            'totalCalls' => $query->count(),
-            'activeCalls' => $query->where('status', 'active')->count(),
-            'avgDuration' => $query->avg('duration_seconds') ?? 0,
-            'avgQuality' => 85, // Aquí calcularías basado en métricas
-            // ... más stats según necesites
+            'totalCalls'  => $total,
+            'activeCalls' => $active,
+            'avgDuration' => $avgDur,
+            'avgQuality'  => 85,
         ]);
     }
 
-    public function getCalls(Request $request)
+    public function getUsers(Request $request)
     {
-        $range = $request->query('range', 'today');
-        
-        $calls = Call::with('metrics')
-            ->when($range === 'today', function($q) {
-                $q->whereDate('created_at', today());
-            })
-            ->when($range === 'week', function($q) {
-                $q->where('created_at', '>=', now()->subWeek());
-            })
-            ->when($range === 'month', function($q) {
-                $q->where('created_at', '>=', now()->subMonth());
-            })
-            ->orderBy('created_at', 'desc')
-            ->limit(50)
-            ->get();
+        if (!$request->user() || $request->user()->rol !== 'admin') {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
 
-        return response()->json($calls);
-    }
+        try {
+            $users = DB::table('users')
+                ->select('id', 'name', 'email', 'created_at', 'rol')
+                ->orderBy('created_at', 'desc')
+                ->get();
 
-    public function getUsers()
-    {
-        $users = User::withCount(['callsAsCaller', 'callsAsReceiver'])
-            ->with(['skills'])
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function($user) {
-                // Calcular estadísticas manualmente
-                $callsAsCaller = Call::where('caller_id', $user->id)->count();
-                $callsAsReceiver = Call::where('receiver_id', $user->id)->count();
-            
-                return [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'created_at' => $user->created_at,
+            if (!Schema::hasTable('calls')) {
+                return response()->json($users->map(fn($u) => [
+                    'id'    => $u->id,
+                    'name'  => $u->name,
+                    'email' => $u->email,
+                    'created_at' => $u->created_at,
+                    'rol'   => $u->rol,
                     'stats' => [
-                        'total_sessions' => $callsAsCaller + $callsAsReceiver,
-                        'as_instructor' => $callsAsCaller,
-                        'as_student' => $callsAsReceiver,
-                    ]
+                        'total_sessions' => 0,
+                        'as_instructor'  => 0,
+                        'as_student'     => 0,
+                    ],
+                ])->values());
+            }
+
+            // Columnas tolerantes a esquemas distintos
+            $callerCol   = Schema::hasColumn('calls', 'caller_id')   ? 'caller_id'
+                : (Schema::hasColumn('calls', 'instructor_id') ? 'instructor_id' : null);
+            $receiverCol = Schema::hasColumn('calls', 'receiver_id') ? 'receiver_id'
+                : (Schema::hasColumn('calls', 'student_id')    ? 'student_id'    : null);
+
+            $asInstructor = collect();
+            $asStudent    = collect();
+
+            if ($callerCol) {
+                $asInstructor = DB::table('calls')
+                    ->select("$callerCol as user_id", DB::raw('COUNT(*) as c'))
+                    ->groupBy($callerCol)
+                    ->pluck('c', 'user_id');
+            }
+            if ($receiverCol) {
+                $asStudent = DB::table('calls')
+                    ->select("$receiverCol as user_id", DB::raw('COUNT(*) as c'))
+                    ->groupBy($receiverCol)
+                    ->pluck('c', 'user_id');
+            }
+
+            $out = $users->map(function ($u) use ($asInstructor, $asStudent) {
+                $inst = (int) $asInstructor->get($u->id, 0);
+                $stud = (int) $asStudent->get($u->id, 0);
+                return [
+                    'id'    => $u->id,
+                    'name'  => $u->name,
+                    'email' => $u->email,
+                    'created_at' => $u->created_at,
+                    'rol'   => $u->rol,
+                    'stats' => [
+                        'total_sessions' => $inst + $stud,
+                        'as_instructor'  => $inst,
+                        'as_student'     => $stud,
+                    ],
                 ];
             });
 
-        return response()->json($users);
+            return response()->json($out->values());
+        } catch (\Throwable $e) {
+            Log::error('admin.getUsers error', [
+                'msg' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
-    public function getUserSessions($userId)
+    public function getUserSessions(Request $request, $userId)
     {
-        $sessions = Call::where('caller_id', $userId)
-            ->orWhere('receiver_id', $userId)
-            ->with(['metrics', 'caller', 'receiver', 'usuarioHabilidad.habilidad'])
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function($call) use ($userId) {
+        if (!$request->user() || $request->user()->rol !== 'admin') {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        try {
+            if (!Schema::hasTable('calls')) {
+                return response()->json([]);
+            }
+
+            $calls = DB::table('calls')
+                ->when(
+                    Schema::hasTable('usuario_habilidad') &&
+                        Schema::hasTable('habilidades') &&
+                        Schema::hasColumn('calls', 'usuario_habilidad_id'),
+                    function ($q) {
+                        $q->leftJoin('usuario_habilidad', 'calls.usuario_habilidad_id', '=', 'usuario_habilidad.id')
+                            ->leftJoin('habilidades', 'usuario_habilidad.habilidad_id', '=', 'habilidades.id');
+                    }
+                )
+                ->where(function ($q) use ($userId) {
+                    $q->where('caller_id', $userId)->orWhere('receiver_id', $userId);
+                })
+                ->orderBy('calls.created_at', 'desc')
+                ->get([
+                    'calls.*',
+                    DB::raw(Schema::hasTable('habilidades') ? 'habilidades.nombre as habilidad_nombre' : 'NULL as habilidad_nombre'),
+                ]);
+
+            $sessions = $calls->map(function ($c) use ($userId) {
                 $duration = null;
-                if ($call->started_at && $call->ended_at) {
-                    $start = \Carbon\Carbon::parse($call->started_at);
-                    $end = \Carbon\Carbon::parse($call->ended_at);
+                if ($c->started_at && $c->ended_at) {
+                    $start = \Carbon\Carbon::parse($c->started_at);
+                    $end   = \Carbon\Carbon::parse($c->ended_at);
                     $duration = $start->diffInMinutes($end);
                 }
                 return [
-                    'id' => $call->id,
-                    'instructor_id' => $call->caller_id,
-                    'student_id' => $call->receiver_id,
-                    'skill_name' => $call->habilidad_nombre,
-                    'started_at' => $call->started_at,
-                    'ended_at' => $call->ended_at,
+                    'id'               => $c->id,
+                    'instructor_id'    => $c->caller_id,
+                    'student_id'       => $c->receiver_id,
+                    'skill_name'       => $c->habilidad_nombre,
+                    'started_at'       => $c->started_at,
+                    'ended_at'         => $c->ended_at,
                     'duration_minutes' => $duration,
-                    'role' => $call->caller_id == $userId ? 'instructor' : 'estudiante',
-                    'metrics' => $call->metrics
+                    'role'             => ((int)$c->caller_id === (int)$userId) ? 'instructor' : 'student',
+                    'metrics'          => [],
                 ];
             });
 
-        return response()->json($sessions);
+            return response()->json($sessions->values());
+        } catch (\Throwable $e) {
+            Log::error('admin.getUserSessions error', [
+                'msg' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 }

@@ -20,12 +20,14 @@ use App\Http\Controllers\NotificacionesController;
 use App\Http\Controllers\ResenaController;
 use App\Http\Controllers\AdminReportsController;
 
-
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login',    [AuthController::class, 'login']);
 
-// 👇 PÚBLICO: ver calendario
+// PÚBLICO
 Route::get('/instructores/{id}/calendario', [CalendarioController::class, 'show']);
+Route::get('/profesores/buscar', [ProfesoresController::class, 'searchTeachers']);
+Route::get('/buscar', BuscarHabilidadesController::class);
+Route::get('/health', fn() => response()->json(['ok' => true]));
 
 Route::middleware('auth:sanctum')->group(function () {
     // Sesión / usuario
@@ -42,20 +44,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/mis-reservas', [ReservaController::class, 'misReservas']);
 
     // Mis habilidades (CRUD)
-    Route::get('/my-skills',                   [MisHabilidadesController::class, 'index']);
-    Route::post('/my-skills',                  [MisHabilidadesController::class, 'store']);
-    Route::put('/my-skills/{skill}',           [MisHabilidadesController::class, 'update']);
-    Route::delete('/my-skills/{skill}',        [MisHabilidadesController::class, 'destroy']);
+    Route::get('/my-skills',            [MisHabilidadesController::class, 'index']);
+    Route::post('/my-skills',           [MisHabilidadesController::class, 'store']);
+    Route::put('/my-skills/{skill}',    [MisHabilidadesController::class, 'update']);
+    Route::delete('/my-skills/{skill}', [MisHabilidadesController::class, 'destroy']);
 
     // Profesores
-    Route::get('/profesores',        [ProfesoresController::class, 'getAllTeachers']);
-    Route::get('/profesores/buscar', [ProfesoresController::class, 'searchTeachers']);
+    Route::get('/profesores', [ProfesoresController::class, 'getAllTeachers']);
 
-    // Crear disponibilidades (solo instructor dueño)
+    // Disponibilidades (solo instructor dueño)
     Route::post('/instructores/{id}/disponibilidades', [DisponibilidadController::class, 'store']);
 
-    // Endpoints para recibir las métricas
-    Route::post('/calls', [CallController::class, 'index']);
+    // Calls + métricas
     Route::get('/calls/{id}', [CallController::class, 'show']);
     Route::post('/calls', [CallController::class, 'store']);
     Route::post('/call-metrics', [CallMetricsController::class, 'store']);
@@ -64,36 +64,24 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/favoritos/remove', [FavoriteController::class, 'destroy']);
     Route::post('/favoritos/agregar', [FavoriteController::class, 'store']);
 
-    // endpoins para el admin
-    Route::get('/admin/dashboard-stats', [AdminController::class, 'dashboardStats']);
-    Route::get('/admin/users', [AdminController::class, 'getUsers']);
-    Route::get('/admin/users/{id}/sessions', [AdminController::class, 'getUserSessions']);
-    Route::get('/admin/sesiones/{reserva}/reporte', [AdminReportsController::class, 'sessionReport']);
-
-
-    // meetings
-    Route::get('/meeting/{meetingId}', [MeetingController::class, 'show']);
-    Route::post('/meeting/{meetingId}/start', [MeetingController::class, 'start']);
-    Route::get('/meeting/{meetingId}/status', [MeetingController::class, 'status']);
-    Route::post('/meeting/{meetingId}/join-waiting-room', [MeetingController::class, 'joinWaitingRoom']);
-    Route::get('/meeting/{meetingId}/waiting-room-status', [MeetingController::class, 'getWaitingRoomStatus']);
-    Route::post('/meeting/{meetingId}/end', [MeetingController::class, 'end']);
-
-    // Reseñas
-    Route::get('/resenas/{sesionId}', [ResenaController::class, 'show']);
-    Route::post('/resenas', [ResenaController::class, 'store']);
-
     // Notificaciones
-    Route::get('/notificaciones',         [NotificacionesController::class, 'index']);
-    Route::get('/notificaciones/unread',  [NotificacionesController::class, 'unreadCount']);
-    Route::get('/notificaciones/latest',  [NotificacionesController::class, 'latest']);
+    Route::get('/notificaciones',            [NotificacionesController::class, 'index']);
+    Route::get('/notificaciones/unread',     [NotificacionesController::class, 'unreadCount']);
+    Route::get('/notificaciones/latest',     [NotificacionesController::class, 'latest']);
     Route::post('/notificaciones/{id}/read', [NotificacionesController::class, 'markRead']);
     Route::post('/notificaciones/read-all',  [NotificacionesController::class, 'markAllRead']);
+
+    // Meetings
+    Route::get('/meeting/{meetingId}',              [MeetingController::class, 'show']);
+    Route::post('/meeting/{meetingId}/start',       [MeetingController::class, 'start']);
+    Route::get('/meeting/{meetingId}/status',       [MeetingController::class, 'status']);
+    Route::post('/meeting/{meetingId}/join-waiting-room', [MeetingController::class, 'joinWaitingRoom']);
+    Route::get('/meeting/{meetingId}/waiting-room-status', [MeetingController::class, 'getWaitingRoomStatus']);
+    Route::post('/meeting/{meetingId}/end',         [MeetingController::class, 'end']);
+
+    // ===================== SOLO ADMIN =====================
+    Route::get('/admin/dashboard-stats', [AdminController::class, 'dashboardStats']);
+    Route::get('/admin/users',           [AdminController::class, 'getUsers']);
+    Route::get('/admin/users/{id}/sessions', [AdminController::class, 'getUserSessions']);
+    Route::get('/admin/sesiones/{reserva}/reporte', [AdminReportsController::class, 'sessionReport']);
 });
-
-Route::get('/profesores/buscar', [ProfesoresController::class, 'searchTeachers']);
-// Búsqueda pública de habilidades (profes que enseñan o gente que quiere aprender)
-
-// Búsqueda pública
-Route::get('/buscar', BuscarHabilidadesController::class);
-Route::get('/health', fn() => response()->json(['ok' => true]));
