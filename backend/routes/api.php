@@ -18,6 +18,8 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\MeetingController;
 use App\Http\Controllers\NotificacionesController;
 use App\Http\Controllers\ResenaController;
+use App\Http\Controllers\AdminReportsController;
+
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login',    [AuthController::class, 'login']);
@@ -66,6 +68,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/dashboard-stats', [AdminController::class, 'dashboardStats']);
     Route::get('/admin/users', [AdminController::class, 'getUsers']);
     Route::get('/admin/users/{id}/sessions', [AdminController::class, 'getUserSessions']);
+    Route::get('/admin/sesiones/{reserva}/reporte', [AdminReportsController::class, 'sessionReport']);
 
 
     // meetings
