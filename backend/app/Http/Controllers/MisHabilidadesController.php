@@ -6,6 +6,7 @@ use App\Models\Habilidad;
 use App\Models\UsuarioHabilidad;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Str;
 
 class MisHabilidadesController extends Controller
 {
@@ -17,116 +18,75 @@ class MisHabilidadesController extends Controller
         $q = UsuarioHabilidad::with('habilidad')
             ->where('user_id', $r->user()->id)
             ->join('habilidad', 'habilidad.id', '=', 'usuario_habilidad.habilidad_id')
-            ->select('usuario_habilidad.*')               // importante para que devuelva el modelo correcto
+            ->select('usuario_habilidad.*')
             ->orderBy('habilidad.nombre');
 
-        if ($r->filled('tipo')) $q->where('tipo', $r->tipo);
+        if ($r->filled('tipo')) {
+            $q->where('tipo', $r->tipo);
+        }
 
-        return response()->json($q->get()->map(fn($uh) => [
-            'id'     => $uh->id,
-            'name'   => $uh->habilidad->nombre,
-            'tipo'   => $uh->tipo,     // ofrecida/deseada
-            'nivel'  => $uh->nivel,    // principiante/intermedio/avanzado (nullable)
-            'estado' => $uh->estado,   // activa/inactiva
-        ]));
+        return response()->json(
+            $q->get()->map(fn($uh) => [
+                'id'     => $uh->id,
+                'name'   => $uh->habilidad->nombre,
+                'tipo'   => $uh->tipo,
+                'nivel'  => $uh->nivel,
+                'estado' => (bool) $uh->estado,
+            ])
+        );
     }
 
+    // POST /api/my-skills
     public function store(Request $r)
     {
         $data = $r->validate([
-            'habilidad_id' => ['nullable', 'integer', 'exists:habilidad,id'],
-            'nombre'       => ['nullable', 'string', 'max:100'],
+            'nombre'       => 'required|string|max:100',
             'tipo'         => ['required', Rule::in(['ofrecida', 'deseada'])],
-            'nivel'        => ['nullable', 'string', 'max:50'],
-            'estado'       => ['nullable', Rule::in(['activa', 'inactiva'])],
+            'nivel'        => ['required', Rule::in(['principiante', 'intermedio', 'avanzado'])],
+            'categoria_id' => [
+                'required',
+                'integer',
+                Rule::exists('categorias', 'id')->where(fn($q) => $q->where('activa', true)),
+            ],
         ]);
 
-        // ⚠️ usar null coalescing para keys opcionales
-        $habId  = $data['habilidad_id'] ?? null;
-        $nombre = $data['nombre']       ?? null;
+        $slug            = Str::slug($data['nombre']);
+        $estadoHabilidad = config('skills.auto_approve', true) ? 'aprobada' : 'pendiente';
 
-        if (!$habId && !$nombre) {
-            return response()->json(['message' => 'Ingresá habilidad_id o nombre'], 422);
-        }
+        $habilidad = Habilidad::firstOrCreate(
+            ['categoria_id' => $data['categoria_id'], 'slug' => $slug],
+            ['nombre' => $data['nombre'], 'estado' => $estadoHabilidad]
+        );
 
-        if (!$habId) {
-            $habId = Habilidad::firstOrCreate(
-                ['nombre' => $nombre],
-                ['descripcion' => null]
-            )->id;
-        }
+        UsuarioHabilidad::updateOrCreate(
+            ['user_id' => $r->user()->id, 'habilidad_id' => $habilidad->id, 'tipo' => $data['tipo']],
+            ['nivel' => $data['nivel'], 'estado' => 1]
+        );
 
-        $exists = UsuarioHabilidad::where('user_id', $r->user()->id)
-            ->where('habilidad_id', $habId)
-            ->where('tipo', $data['tipo'])
-            ->exists();
-
-        if ($exists) {
-            return response()->json(['message' => 'Ya cargaste esa habilidad en esa modalidad'], 422);
-        }
-
-        $incorporada = UsuarioHabilidad::where('user_id', $r->user()->id)
-        ->where('habilidad_id', $habId)
-        ->first();
-        // condicional para verificar que el usuario no cargue una habilidad incorporada
-        if($incorporada){
-            // almaceno si la habilidad se trata de una deseada u ofrecida
-            $naturaleza = $incorporada->tipo;
-            return response()->json(['message' => 'Error. Habilidad ya incorporada en '.$naturaleza.'.'], 422);
-        }
-
-        $uh = UsuarioHabilidad::create([
-            'user_id'      => $r->user()->id,
-            'habilidad_id' => $habId,
-            'tipo'         => $data['tipo'],
-            'nivel'        => $data['nivel']  ?? null,
-            'estado'       => $data['estado'] ?? 'activa',
-        ]);
-
-        // devolvemos con la relación cargada (así el front lee data.habilidad.nombre)
-        return response()->json($uh->load('habilidad'), 201);
+        return response()->json(['ok' => true]);
     }
 
-
+    // PUT /api/my-skills/{skill}
     public function update(Request $r, UsuarioHabilidad $skill)
     {
         if ($skill->user_id !== $r->user()->id) abort(403);
 
         $data = $r->validate([
-            'habilidad_id' => ['nullable', 'integer', 'exists:habilidad,id'],
-            'nombre'       => ['nullable', 'string', 'max:100'],
-            'tipo'         => ['required', Rule::in(['ofrecida', 'deseada'])],
-            'nivel'        => ['nullable', 'string', 'max:50'],
-            'estado'       => ['nullable', Rule::in(['activa', 'inactiva'])],
+            'tipo'   => ['required', Rule::in(['ofrecida', 'deseada'])],
+            'nivel'  => ['nullable', Rule::in(['principiante', 'intermedio', 'avanzado'])],
+            'estado' => ['nullable', 'boolean'],
         ]);
 
-        $habId  = $data['habilidad_id'] ?? null;
-        $nombre = $data['nombre']       ?? null;
+        $payload = ['tipo' => $data['tipo']];
+        if (array_key_exists('nivel', $data))  $payload['nivel']  = $data['nivel'];
+        if (array_key_exists('estado', $data)) $payload['estado'] = $data['estado'] ? 1 : 0;
 
-        if (!$habId && $nombre) {
-            $habId = Habilidad::firstOrCreate(['nombre' => $nombre], ['descripcion' => null])->id;
-        }
-        if (!$habId) $habId = $skill->habilidad_id;
+        $skill->update($payload);
 
-        $dup = UsuarioHabilidad::where('user_id', $r->user()->id)
-            ->where('id', '!=', $skill->id)
-            ->where('habilidad_id', $habId)
-            ->where('tipo', $data['tipo'])
-            ->exists();
-
-        if ($dup) return response()->json(['message' => 'Duplicado'], 422);
-
-        $skill->update([
-            'habilidad_id' => $habId,
-            'tipo'         => $data['tipo'],
-            'nivel'        => $data['nivel']  ?? null,
-            'estado'       => $data['estado'] ?? $skill->estado,
-        ]);
-
-        return response()->json($skill->load('habilidad'));
+        return response()->json($skill->fresh('habilidad'));
     }
 
-
+    // DELETE /api/my-skills/{skill}
     public function destroy(Request $r, UsuarioHabilidad $skill)
     {
         if ($skill->user_id !== $r->user()->id) abort(403);

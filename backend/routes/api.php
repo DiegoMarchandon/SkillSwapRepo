@@ -20,6 +20,12 @@ use App\Http\Controllers\NotificacionesController;
 use App\Http\Controllers\ResenaController;
 use App\Http\Controllers\AdminReportsController;
 
+use App\Http\Controllers\Admin\CategoriaController as AdminCategoriaController;
+
+
+use App\Http\Controllers\Publico\CategoriaPublicController;
+
+
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login',    [AuthController::class, 'login']);
 
@@ -29,7 +35,12 @@ Route::get('/profesores/buscar', [ProfesoresController::class, 'searchTeachers']
 Route::get('/buscar', BuscarHabilidadesController::class);
 Route::get('/health', fn() => response()->json(['ok' => true]));
 
+Route::get('categorias', [CategoriaPublicController::class, 'index']);
+Route::get('habilidades', \App\Http\Controllers\BuscarHabilidadesController::class);
+
 Route::middleware('auth:sanctum')->group(function () {
+
+    Route::apiResource('categorias', AdminCategoriaController::class);
     // Sesión / usuario
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', fn(Request $r) => $r->user());
@@ -80,8 +91,22 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/meeting/{meetingId}/end',         [MeetingController::class, 'end']);
 
     // ===================== SOLO ADMIN =====================
-    Route::get('/admin/dashboard-stats', [AdminController::class, 'dashboardStats']);
-    Route::get('/admin/users',           [AdminController::class, 'getUsers']);
-    Route::get('/admin/users/{id}/sessions', [AdminController::class, 'getUserSessions']);
-    Route::get('/admin/sesiones/{reserva}/reporte', [AdminReportsController::class, 'sessionReport']);
+    Route::middleware(['auth:sanctum'])   // si ya tenés el alias 'admin', podés usar ['auth:sanctum','admin']
+        ->prefix('admin')
+        ->group(function () {
+            // CRUD Categorías (Req. 10)
+            Route::apiResource('categorias', \App\Http\Controllers\Admin\CategoriaController::class);
+
+            // Dashboard / usuarios / reportes
+            Route::get('dashboard-stats', [\App\Http\Controllers\AdminController::class, 'dashboardStats']);
+            Route::get('users',           [\App\Http\Controllers\AdminController::class, 'getUsers']);
+            Route::get('users/{id}/sessions', [\App\Http\Controllers\AdminController::class, 'getUserSessions']);
+            Route::get('sesiones/{reserva}/reporte', [\App\Http\Controllers\AdminReportsController::class, 'sessionReport']);
+
+            // Moderación de habilidades (base Req. 11 futuro)
+            Route::get('habilidades',                      [\App\Http\Controllers\Admin\HabilidadController::class, 'index']);
+            Route::put('habilidades/{habilidad}',          [\App\Http\Controllers\Admin\HabilidadController::class, 'update']);
+            Route::delete('habilidades/{habilidad}',          [\App\Http\Controllers\Admin\HabilidadController::class, 'destroy']);
+            Route::post('habilidades/{habilidad}/fusionar', [\App\Http\Controllers\Admin\HabilidadController::class, 'fusionar']);
+        });
 });

@@ -1,33 +1,43 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../utils/axios';
-import SessionRow from '../../components/admin/SessionRow';
-import UserRow from '../../components/admin/UserRow';
 import UserSessions from '../../components/admin/UserSessions';
 import UsersList from '../../components/admin/UsersList';
 
-
 export default function AdminDashboard() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  // 🚧 Guard de acceso
+  useEffect(() => {
+    if (!loading) {
+      if (!user) router.replace('/login');
+      else if ((user.rol ?? '') !== 'admin') router.replace('/');
+    }
+  }, [user, loading, router]);
+
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [userSessions, setUserSessions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingUsers, setLoadingUsers] = useState(true);
   const [sessionsLoading, setSessionsLoading] = useState(false);
-  const [view, setView] = useState('users'); // 'users' or 'sessions'
+  const [view, setView] = useState('users'); // 'users' | 'sessions'
 
   useEffect(() => {
-    loadUsers();
-  }, []);
+    if (!loading && user && (user.rol ?? '') === 'admin') loadUsers();
+  }, [loading, user]);
 
   async function loadUsers() {
     try {
-      setLoading(true);
+      setLoadingUsers(true);
       const { data } = await api.get('/admin/users');
       setUsers(data);
     } catch (error) {
       console.error('Error loading users:', error);
     } finally {
-      setLoading(false);
+      setLoadingUsers(false);
     }
   }
 
@@ -35,6 +45,7 @@ export default function AdminDashboard() {
     try {
       setSessionsLoading(true);
       const { data } = await api.get(`/admin/users/${userId}/sessions`);
+      setSelectedUser(users.find(u => u.id === userId) ?? null);
       setUserSessions(data);
       setView('sessions');
     } catch (error) {
@@ -50,7 +61,9 @@ export default function AdminDashboard() {
     setUserSessions([]);
   }
 
-  if (loading) {
+  if (loading || !user || (user.rol ?? '') !== 'admin') return null;
+
+  if (loadingUsers) {
     return (
       <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
         <div className="text-center">
@@ -63,21 +76,19 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
-              {view === 'users' ? 'Gestión de Usuarios' : `Historial de ${selectedUser?.name}`}
+              {view === 'users' ? 'Gestión de Usuarios' : `Historial de ${selectedUser?.name ?? ''}`}
             </h1>
             <p className="text-gray-600 mt-1">
-              {view === 'users' 
-                ? 'Administra y visualiza la actividad de los usuarios' 
-                : `Sesiones y métricas de ${selectedUser?.name}`
-              }
+              {view === 'users'
+                ? 'Administra y visualiza la actividad de los usuarios'
+                : `Sesiones y métricas de ${selectedUser?.name ?? ''}`}
             </p>
           </div>
-          
+
           {view === 'sessions' && (
             <button
               onClick={handleBackToUsers}
@@ -89,15 +100,14 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Contenido Principal */}
       {view === 'users' ? (
-        <UsersList 
-          users={users} 
+        <UsersList
+          users={users}
           onViewSessions={loadUserSessions}
           setSelectedUser={setSelectedUser}
         />
       ) : (
-        <UserSessions 
+        <UserSessions
           user={selectedUser}
           sessions={userSessions}
           loading={sessionsLoading}

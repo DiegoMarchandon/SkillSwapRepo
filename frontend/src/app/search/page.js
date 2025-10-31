@@ -84,15 +84,19 @@ export default function SearchPage() {
             {results.map((row, i) => {
               const userId   = row?.user?.id;
               const userName = row?.user?.name ?? 'Usuario';
-              const skillId  = row?.skill?.id;
+              const skillId  = row?.skill?.id;  
               const skillNom = row?.skill?.name ?? row?.skill?.nombre ?? 'Habilidad';
               const skillNiv = row?.skill?.nivel;
+              const pivotId  = row?.skill?.pivot_id;
 
               const goCalendario = () => {
-                if (!userId) return;
-                const q = skillId ? `?skill=${skillId}` : '';
-                router.push(`/instructores/${userId}${q}`);
-              };
+  if (!userId) return;
+  const params = new URLSearchParams();
+  if (skillId) params.set('skill_id', String(skillId));
+  // Si quisieras usar el pivot en vez de habilidad: params.set('usuario_habilidad_id', String(pivotId));
+  const q = params.toString() ? `?${params.toString()}` : '';
+  router.push(`/instructores/${userId}${q}`);
+};
 
               return (
                 <li key={i} className="flex items-center gap-3 py-3">

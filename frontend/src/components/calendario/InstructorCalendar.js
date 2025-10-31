@@ -23,18 +23,15 @@ export default function InstructorCalendar({ instructorId, skillId }) {
   }, [month]);
 
   async function loadSlots() {
-    setLoading(true);
-    try {
-      const params = { from: range.from.toISOString(), to: range.to.toISOString() };
-      if (skillId) {
-        params.skill_id = String(skillId);
-        params.usuario_habilidad_id = String(skillId);
-      }
-      const qs = new URLSearchParams(params).toString();
-      const { data } = await api.get(`/instructores/${instructorId}/calendario?` + qs);
-      setSlots(data?.data || []);
-    } finally { setLoading(false); }
-  }
+  setLoading(true);
+  try {
+    const params = { from: range.from.toISOString(), to: range.to.toISOString() };
+    if (skillId) params.skill_id = String(skillId); // usar solo uno
+    const { data } = await api.get(`/instructores/${instructorId}/calendario`, { params });
+    setSlots(data?.data || []);
+  } finally { setLoading(false); }
+}
+
 
   useEffect(() => { loadSlots(); }, [instructorId, range.from, range.to, skillId]);
 
