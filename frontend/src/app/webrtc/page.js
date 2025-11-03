@@ -91,12 +91,15 @@ export default function WebRTCPage() {
       if (!isCaller) {
         localStorage.setItem('call_id', call_id);
 
-        await pcRef.current.setRemoteDescription(new RTCSessionDescription(offer));
-
+        
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         stream.getTracks().forEach(track => pcRef.current.addTrack(track, stream));
         localVideoRef.current.srcObject = stream;
+        
+        // primero establecemos la conexión remota
+        await pcRef.current.setRemoteDescription(new RTCSessionDescription(offer));
 
+        // Luego creamos y establecemos la respuesta
         const answer = await pcRef.current.createAnswer();
         await pcRef.current.setLocalDescription(answer);
         socketRef.current.emit('answer', { answer, call_id });
