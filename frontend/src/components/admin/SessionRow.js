@@ -33,7 +33,13 @@ export default function SessionRow({ session }) {
     (session.duration_minutes ?? 0) > 0;
 
   async function downloadReport(format) {
-  try {
+    console.log('🔄 IDs disponibles:', {
+      reservaId,
+      sessionId: session.id,
+      sessionReservaId: session.reserva_id,
+      session
+    });
+    try {
     const { data, headers, status } = await api.get(
       `/admin/sesiones/${reservaId}/reporte`,
       { params: { format }, responseType: 'blob' }

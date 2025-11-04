@@ -110,6 +110,11 @@ export default function WebRTCPage() {
 
     // Escuchar respuesta
     socketRef.current.on('answer', async ({ answer }) => {
+      
+      if (pcRef.current.signalingState !== 'have-local-offer') {
+        console.warn('Ignorando answer: estado incorrecto', pcRef.current.signalingState);
+        return;
+      }
       await pcRef.current.setRemoteDescription(new RTCSessionDescription(answer));
     });
 
@@ -119,6 +124,11 @@ export default function WebRTCPage() {
         console.warn("Ignorando ICE candidate: conexijh");
       }
       
+      if (!pcRef.current.remoteDescription) {
+        console.warn("Ignorando ICE candidate: remoteDescription no establecida aún");
+        return;
+      }
+
       try {
         await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
       } catch (err) {

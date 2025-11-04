@@ -101,7 +101,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('dashboard-stats', [\App\Http\Controllers\AdminController::class, 'dashboardStats']);
             Route::get('users',           [\App\Http\Controllers\AdminController::class, 'getUsers']);
             Route::get('users/{id}/sessions', [\App\Http\Controllers\AdminController::class, 'getUserSessions']);
-            Route::get('sesiones/{reserva}/reporte', [\App\Http\Controllers\AdminReportsController::class, 'sessionReport']);
+            Route::get('sesiones/{id}/reporte', [\App\Http\Controllers\AdminReportsController::class, 'sessionReport']);
 
             // Moderación de habilidades (base Req. 11 futuro)
             Route::get('habilidades',                      [\App\Http\Controllers\Admin\HabilidadController::class, 'index']);

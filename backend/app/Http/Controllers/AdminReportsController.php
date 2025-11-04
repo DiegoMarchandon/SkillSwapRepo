@@ -14,18 +14,40 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class AdminReportsController extends Controller
 {
-    public function sessionReport(Request $request, Reserva $reserva)
+    public function sessionReport(Request $request, $id)
     {
+
+        // DEBUG: Ver todas las reservas
+        $allReservas = \App\Models\Reserva::all()->pluck('id');
+        Log::info('Todas las reservas disponibles', ['ids' => $allReservas]);
+
         $user = $request->user();
         if (!$user || !$user->is_admin) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
         try {
+            // Buscamos la reserva:
+            $reserva = Reserva::find($id);
+            if(!$reserva){
+                Log::warning('Reserva no encontrada', ['solicitado' => $id, 'disponibles' => $allReservas]);
+                return response()->json(['message' => 'Reserva not found'],404);
+            }
+
             $format = $request->query('format', 'html');
 
             // 1) Calls + metrics (robusto a nombre de columna)
             $linked   = false;
             $callQuery = DB::table('calls')->orderBy('id');
+
+            // Justo después del bloque de verificación de columnas, agrega:
+            Log::info('Debug columnas calls', [
+                'tiene_reserva_id' => Schema::hasColumn('calls', 'reserva_id'),
+                'tiene_reservaId' => Schema::hasColumn('calls', 'reservaId'),
+                'tiene_meeting_id' => Schema::hasColumn('calls', 'meeting_id'),
+                'reserva_meeting_id' => $reserva->meeting_id,
+                'meeting_id_no_vacio' => !empty($reserva->meeting_id),
+                'linked_final' => $linked
+            ]);
 
             if (Schema::hasColumn('calls', 'reserva_id')) {
                 $callQuery->where('reserva_id', $reserva->id);
