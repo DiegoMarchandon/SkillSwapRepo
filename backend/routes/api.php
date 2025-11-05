@@ -90,6 +90,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/meeting/{meetingId}/waiting-room-status', [MeetingController::class, 'getWaitingRoomStatus']);
     Route::post('/meeting/{meetingId}/end',         [MeetingController::class, 'end']);
 
+    // Reseñas
+    Route::get('/resenas/{sesionId}', [ResenaController::class, 'show']);
+    Route::post('/resenas', [ResenaController::class, 'store']);
+
     // ===================== SOLO ADMIN =====================
     Route::middleware(['auth:sanctum'])   // si ya tenés el alias 'admin', podés usar ['auth:sanctum','admin']
         ->prefix('admin')
