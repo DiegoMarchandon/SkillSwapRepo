@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Log;
 use App\Models\Reserva;
+use App\Models\Call;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -16,69 +17,30 @@ class AdminReportsController extends Controller
 {
     public function sessionReport(Request $request, $id)
     {
-
-        // DEBUG: Ver todas las reservas
-        $allReservas = \App\Models\Reserva::all()->pluck('id');
-        Log::info('Todas las reservas disponibles', ['ids' => $allReservas]);
-
         $user = $request->user();
         if (!$user || !$user->is_admin) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+        
         try {
-            // Buscamos la reserva:
-            $reserva = Reserva::find($id);
-            if(!$reserva){
-                Log::warning('Reserva no encontrada', ['solicitado' => $id, 'disponibles' => $allReservas]);
-                return response()->json(['message' => 'Reserva not found'],404);
+            // Buscamos la CALL (no la reserva)
+            $call = Call::find($id);
+            if (!$call) {
+                Log::warning('Call no encontrada', ['solicitado' => $id]);
+                return response()->json(['message' => 'Call not found'], 404);
             }
 
             $format = $request->query('format', 'html');
 
-            // 1) Calls + metrics (robusto a nombre de columna)
-            $linked   = false;
-            $callQuery = DB::table('calls')->orderBy('id');
-
-            // Justo después del bloque de verificación de columnas, agrega:
-            Log::info('Debug columnas calls', [
-                'tiene_reserva_id' => Schema::hasColumn('calls', 'reserva_id'),
-                'tiene_reservaId' => Schema::hasColumn('calls', 'reservaId'),
-                'tiene_meeting_id' => Schema::hasColumn('calls', 'meeting_id'),
-                'reserva_meeting_id' => $reserva->meeting_id,
-                'meeting_id_no_vacio' => !empty($reserva->meeting_id),
-                'linked_final' => $linked
-            ]);
-
-            if (Schema::hasColumn('calls', 'reserva_id')) {
-                $callQuery->where('reserva_id', $reserva->id);
-                $linked = true;
-            } elseif (Schema::hasColumn('calls', 'reservaId')) {
-                $callQuery->where('reservaId', $reserva->id);
-                $linked = true;
-            } elseif (Schema::hasColumn('calls', 'meeting_id') && !empty($reserva->meeting_id)) {
-                $callQuery->where('meeting_id', $reserva->meeting_id);
-                $linked = true;
-            } else {
-                Log::warning('calls: no link column found', [
-                    'available_columns' => Schema::getColumnListing('calls'),
-                    'reserva_id' => $reserva->id,
-                    'meeting_id' => $reserva->meeting_id,
-                ]);
-            }
-
-            $calls = $linked ? $callQuery->get() : collect();  // ← si no hay columna, no traemos nada
-            $callIds = $calls->pluck('id')->all();
-
-            $metrics = empty($callIds)
-                ? collect()
-                : DB::table('call_metrics')
-                ->whereIn('call_id', $callIds)
+            // 1) Buscar métricas de ESTA call específica
+            $metrics = DB::table('call_metrics')
+                ->where('call_id', $id)
                 ->orderBy('created_at')
                 ->get();
 
-            // 2) Fechas robustas
-            $startedAt = $reserva->meeting_started_at ?? $reserva->created_at;
-            $endedAt   = $reserva->meeting_ended_at   ?? $reserva->updated_at;
+            // 2) Fechas de la CALL (no de reserva)
+            $startedAt = $call->started_at ?? $call->created_at;
+            $endedAt   = $call->ended_at   ?? $call->updated_at;
 
             $started = $startedAt ? Carbon::parse($startedAt) : null;
             $ended   = $endedAt   ? Carbon::parse($endedAt)   : null;
@@ -103,26 +65,24 @@ class AdminReportsController extends Controller
                 'prom_loss'     => $avg('packets_lost'),
             ];
 
-            // 3) Formatos
+            // 3) Formatos - Cambiar a $call en lugar de $reserva
             if ($format === 'csv') {
-                $csv = $this->renderCsv($reserva, $metrics, $stats);
+                $csv = $this->renderCsv($call, $metrics, $stats);
                 return Response::make($csv, 200, [
                     'Content-Type'        => 'text/csv; charset=UTF-8',
-                    'Content-Disposition' => 'attachment; filename="reporte-sesion-' . $reserva->id . '.csv"',
+                    'Content-Disposition' => 'attachment; filename="reporte-sesion-' . $call->id . '.csv"',
                 ]);
             }
 
-            $html = $this->renderHtml($reserva, $metrics, $stats);
+            $html = $this->renderHtml($call, $metrics, $stats);
 
             if ($format === 'pdf') {
                 try {
-                    // PDF real
                     return Pdf::loadHTML($html)
                         ->setPaper('a4', 'portrait')
-                        ->stream('reporte-sesion-' . $reserva->id . '.pdf'); // o ->download(...)
+                        ->stream('reporte-sesion-' . $call->id . '.pdf');
                 } catch (\Throwable $e) {
-                    // Fallback a HTML si DomPDF falla (no corta el flujo)
-                    Log::warning('PDF fallback to HTML', ['reserva_id' => $reserva->id, 'msg' => $e->getMessage()]);
+                    Log::warning('PDF fallback to HTML', ['call_id' => $call->id, 'msg' => $e->getMessage()]);
                     return Response::make($html, 200, ['Content-Type' => 'text/html; charset=UTF-8']);
                 }
             }
@@ -130,25 +90,21 @@ class AdminReportsController extends Controller
             // HTML por defecto
             return Response::make($html, 200, ['Content-Type' => 'text/html; charset=UTF-8']);
 
-
-            // HTML (si después activás DomPDF podés convertir este HTML a PDF)
-            $html = $this->renderHtml($reserva, $metrics, $stats);
-            return Response::make($html, 200, ['Content-Type' => 'text/html; charset=UTF-8']);
         } catch (\Throwable $e) {
             Log::error('Reporte sesión error', [
-                'reserva_id' => $reserva->id ?? null,
-                'msg'        => $e->getMessage(),
-                'trace'      => $e->getTraceAsString(),
+                'call_id' => $id ?? null,
+                'msg'     => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
             ]);
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 
 
-    protected function renderHtml(Reserva $reserva, $metrics, array $stats): string
+    protected function renderHtml(Call $call, $metrics, array $stats): string
     {
         $html  = '<!doctype html><html><head><meta charset="utf-8">';
-        $html .= '<title>Reporte Sesión #' . $reserva->id . '</title>';
+        $html .= '<title>Reporte Sesión #' . $call->id . '</title>';
         $html .= '<style>
             body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;padding:24px;background:#f7f7fb}
             h1{margin:0 0 16px}
@@ -159,13 +115,13 @@ class AdminReportsController extends Controller
             small{color:#6b7280}
         </style></head><body>';
 
-        $html .= '<h1>Reporte de Sesión #' . $reserva->id . '</h1>';
+        $html .= '<h1>Reporte de Sesión #' . $call->id . '</h1>';
 
         $html .= '<div class="card"><strong>Resumen</strong>';
         $html .= '<div>Inicio: '    . ($stats['inicio']        ?? '-') . '</div>';
         $html .= '<div>Fin: '       . ($stats['fin']           ?? '-') . '</div>';
         $html .= '<div>Duración: '  . ($stats['duracion_min']  ?? 0)   . ' min</div>';
-        $html .= '<div>Estado: '    . e($reserva->estado ?? '-') . '</div>';
+        $html .= '<div>Estado: '    . e($call->status ?? '-') . '</div>';
         $html .= '</div>';
 
         $html .= '<div class="card"><strong>Promedios</strong>';
@@ -199,12 +155,12 @@ class AdminReportsController extends Controller
         return $html;
     }
 
-    protected function renderCsv(Reserva $reserva, $metrics, array $stats): string
+    protected function renderCsv(Call $call, $metrics, array $stats): string
     {
         $out = [];
         $out[] = 'reserva_id,inicio,fin,duracion_min,avg_fps,avg_jitter,avg_latency,avg_loss';
         $out[] = implode(',', [
-            $reserva->id,
+            $call->id,
             '"' . ($stats['inicio'] ?? '') . '"',
             '"' . ($stats['fin']    ?? '') . '"',
             $stats['duracion_min'] ?? 0,
