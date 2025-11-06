@@ -1,18 +1,28 @@
 "use client";
-import { useEffect } from "react";
-import { useAuth } from "@/context/AuthContext";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import api from "@/utils/axios";
 
 export default function AdminGate({ children }) {
-  const { user, loading } = useAuth();
+  const [ok, setOk] = useState(false);
   const router = useRouter();
+
   useEffect(() => {
-    if (!loading) {
-      if (!user) router.replace("/login");
-      else if (!user.is_admin) router.replace("/");
-    }
-  }, [user, loading, router]);
-  if (loading || !user) return <div className="p-6">Cargando…</div>;
-  if (!user.is_admin) return null;
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await api.get("/me"); // /api/me
+        // Acepta is_admin o rol === 'admin'
+        const isAdmin = !!(data?.is_admin ?? (data?.rol === "admin"));
+        if (alive && isAdmin) setOk(true);
+        else router.replace("/"); // no admin -> afuera
+      } catch {
+        router.replace("/"); // no autenticado -> afuera
+      }
+    })();
+    return () => { alive = false; };
+  }, [router]);
+
+  if (!ok) return null;
   return children;
 }

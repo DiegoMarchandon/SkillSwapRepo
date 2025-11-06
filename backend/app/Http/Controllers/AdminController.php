@@ -2,181 +2,91 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Log;
 
 class AdminController extends Controller
 {
-    public function dashboardStats(Request $request)
+    // ... (dashboardStats / getUserSessions si ya los tenés)
+
+    public function getUsers(Request $r)
     {
-        // Solo admin por ROL
-        if (!$request->user() || $request->user()->rol !== 'admin') {
-            return response()->json(['message' => 'Forbidden'], 403);
+        // El middleware 'admin' ya controló permisos.
+
+        $q = trim((string) $r->input('q', ''));
+        $filterByBlocked = $r->has('is_blocked');
+        $blockedValue    = $r->boolean('is_blocked');
+
+        $users = User::query()
+            ->select(
+                'id',
+                'name',
+                'email',
+                'rol',
+                'is_blocked',
+                'blocked_reason',
+                'blocked_by',
+                'blocked_until',
+                'blocked_at',
+                'created_at'
+            ) // NO seleccionamos 'is_admin' porque no existe en DB
+            ->when($q, function ($query) use ($q) {
+                $query->where(function ($w) use ($q) {
+                    $w->where('name', 'like', "%{$q}%")
+                        ->orWhere('email', 'like', "%{$q}%");
+                    if (ctype_digit($q)) $w->orWhere('id', (int) $q);
+                });
+            })
+            ->when($filterByBlocked, fn($qq) => $qq->where('is_blocked', $blockedValue ? 1 : 0))
+            ->orderByDesc('id')
+            ->paginate(20);
+
+        // Aseguramos que 'is_admin' (accesor basado en 'rol') aparezca en el JSON
+        $users->getCollection()->transform(function ($u) {
+            $u->is_admin = $u->is_admin; // fuerza inclusión del accesor
+            return $u;
+        });
+
+        return response()->json($users);
+    }
+
+    public function blockUser(Request $r, User $user)
+    {
+        // Evitamos que un admin se bloquee a sí mismo
+        if ($r->user()->id === $user->id) {
+            return response()->json(['message' => 'No podés bloquear tu propia cuenta.'], 422);
         }
 
-        $range = $request->query('range', 'today');
+        $data = $r->validate([
+            'is_blocked'     => ['required', 'boolean'],
+            'blocked_reason' => ['nullable', 'string', 'max:500'],
+            'blocked_until'  => ['nullable', 'date'],
+        ]);
 
-        if (!Schema::hasTable('calls')) {
-            return response()->json([
-                'totalCalls'  => 0,
-                'activeCalls' => 0,
-                'avgDuration' => 0.0,
-                'avgQuality'  => 85,
-            ]);
-        }
+        $isBlock = (bool) $data['is_blocked'];
 
-        $q = DB::table('calls');
-        if ($range === 'today')      $q->whereDate('created_at', today());
-        elseif ($range === 'week')   $q->where('created_at', '>=', now()->subWeek());
-        elseif ($range === 'month')  $q->where('created_at', '>=', now()->subMonth());
-
-        $total  = (clone $q)->count();
-        $active = (clone $q)->where('status', 'active')->count();
-        $avgDur = (float) ((clone $q)->avg('duration_seconds') ?? 0);
+        $user->fill([
+            'is_blocked'     => $isBlock,
+            'blocked_reason' => $data['blocked_reason'] ?? null, // usa *blocked_reason* (tu columna)
+            'blocked_until'  => $data['blocked_until']  ?? null,
+            'blocked_by'     => $isBlock ? $r->user()->id : null,
+            'blocked_at'     => $isBlock ? now() : null,
+        ])->save();
 
         return response()->json([
-            'totalCalls'  => $total,
-            'activeCalls' => $active,
-            'avgDuration' => $avgDur,
-            'avgQuality'  => 85,
+            'ok'   => true,
+            'user' => [
+                'id'             => $user->id,
+                'name'           => $user->name,
+                'email'          => $user->email,
+                'rol'            => $user->rol,
+                'is_admin'       => $user->is_admin,          // accesor basado en 'rol'
+                'is_blocked'     => (bool)$user->is_blocked,
+                'blocked_reason' => $user->blocked_reason,
+                'blocked_until'  => $user->blocked_until,
+                'blocked_by'     => $user->blocked_by,
+                'blocked_at'     => $user->blocked_at,
+            ],
         ]);
-    }
-
-    public function getUsers(Request $request)
-    {
-        if (!$request->user() || $request->user()->rol !== 'admin') {
-            return response()->json(['message' => 'Forbidden'], 403);
-        }
-
-        try {
-            $users = DB::table('users')
-                ->select('id', 'name', 'email', 'created_at', 'rol')
-                ->orderBy('created_at', 'desc')
-                ->get();
-
-            if (!Schema::hasTable('calls')) {
-                return response()->json($users->map(fn($u) => [
-                    'id'    => $u->id,
-                    'name'  => $u->name,
-                    'email' => $u->email,
-                    'created_at' => $u->created_at,
-                    'rol'   => $u->rol,
-                    'stats' => [
-                        'total_sessions' => 0,
-                        'as_instructor'  => 0,
-                        'as_student'     => 0,
-                    ],
-                ])->values());
-            }
-
-            // Columnas tolerantes a esquemas distintos
-            $callerCol   = Schema::hasColumn('calls', 'caller_id')   ? 'caller_id'
-                : (Schema::hasColumn('calls', 'instructor_id') ? 'instructor_id' : null);
-            $receiverCol = Schema::hasColumn('calls', 'receiver_id') ? 'receiver_id'
-                : (Schema::hasColumn('calls', 'student_id')    ? 'student_id'    : null);
-
-            $asInstructor = collect();
-            $asStudent    = collect();
-
-            if ($callerCol) {
-                $asInstructor = DB::table('calls')
-                    ->select("$callerCol as user_id", DB::raw('COUNT(*) as c'))
-                    ->groupBy($callerCol)
-                    ->pluck('c', 'user_id');
-            }
-            if ($receiverCol) {
-                $asStudent = DB::table('calls')
-                    ->select("$receiverCol as user_id", DB::raw('COUNT(*) as c'))
-                    ->groupBy($receiverCol)
-                    ->pluck('c', 'user_id');
-            }
-
-            $out = $users->map(function ($u) use ($asInstructor, $asStudent) {
-                $inst = (int) $asInstructor->get($u->id, 0);
-                $stud = (int) $asStudent->get($u->id, 0);
-                return [
-                    'id'    => $u->id,
-                    'name'  => $u->name,
-                    'email' => $u->email,
-                    'created_at' => $u->created_at,
-                    'rol'   => $u->rol,
-                    'stats' => [
-                        'total_sessions' => $inst + $stud,
-                        'as_instructor'  => $inst,
-                        'as_student'     => $stud,
-                    ],
-                ];
-            });
-
-            return response()->json($out->values());
-        } catch (\Throwable $e) {
-            Log::error('admin.getUsers error', [
-                'msg' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
-    }
-
-    public function getUserSessions(Request $request, $userId)
-    {
-        if (!$request->user() || $request->user()->rol !== 'admin') {
-            return response()->json(['message' => 'Forbidden'], 403);
-        }
-
-        try {
-            if (!Schema::hasTable('calls')) {
-                return response()->json([]);
-            }
-
-            $calls = DB::table('calls')
-                ->when(
-                    Schema::hasTable('usuario_habilidad') &&
-                        Schema::hasTable('habilidades') &&
-                        Schema::hasColumn('calls', 'usuario_habilidad_id'),
-                    function ($q) {
-                        $q->leftJoin('usuario_habilidad', 'calls.usuario_habilidad_id', '=', 'usuario_habilidad.id')
-                            ->leftJoin('habilidades', 'usuario_habilidad.habilidad_id', '=', 'habilidades.id');
-                    }
-                )
-                ->where(function ($q) use ($userId) {
-                    $q->where('caller_id', $userId)->orWhere('receiver_id', $userId);
-                })
-                ->orderBy('calls.created_at', 'desc')
-                ->get([
-                    'calls.*',
-                    DB::raw(Schema::hasTable('habilidades') ? 'habilidades.nombre as habilidad_nombre' : 'NULL as habilidad_nombre'),
-                ]);
-
-            $sessions = $calls->map(function ($c) use ($userId) {
-                $duration = null;
-                if ($c->started_at && $c->ended_at) {
-                    $start = \Carbon\Carbon::parse($c->started_at);
-                    $end   = \Carbon\Carbon::parse($c->ended_at);
-                    $duration = $start->diffInMinutes($end);
-                }
-                return [
-                    'id'               => $c->id,
-                    'instructor_id'    => $c->caller_id,
-                    'student_id'       => $c->receiver_id,
-                    'skill_name'       => $c->habilidad_nombre,
-                    'started_at'       => $c->started_at,
-                    'ended_at'         => $c->ended_at,
-                    'duration_minutes' => $duration,
-                    'role'             => ((int)$c->caller_id === (int)$userId) ? 'instructor' : 'student',
-                    'metrics'          => [],
-                ];
-            });
-
-            return response()->json($sessions->values());
-        } catch (\Throwable $e) {
-            Log::error('admin.getUserSessions error', [
-                'msg' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
     }
 }
