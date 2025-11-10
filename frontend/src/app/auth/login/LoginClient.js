@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../../../context/AuthContext'; // ajustá si tu path es distinto
+import { useAuth } from '../../../context/AuthContext';
 import LoginForm from '../../../components/forms/LoginForm';
 import api from '../../../utils/axios';
 
@@ -19,12 +19,16 @@ export default function LoginClient({ next = '/perfil' }) {
       const res = await api.post('/login', { email, password });
       const token =
         res.data?.token ?? res.data?.access_token ?? res.data?.data?.token;
-      const user = res.data?.user ?? res.data?.data?.user ?? null;
+      const user  =
+        res.data?.user ?? res.data?.data?.user ?? null;
 
       if (!token) throw new Error('No se recibió el token.');
       localStorage.setItem('token', token);
-      login(user);                           // actualizá tu contexto
-      router.replace(`${next}?ok=login`);    // redirigí a donde estabas
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      login(user);
+
+      router.replace(`${next}?ok=login`);
+      router.refresh();
     } catch (err) {
       setError(err);
     }

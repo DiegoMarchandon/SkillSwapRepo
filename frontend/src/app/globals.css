@@ -63,3 +63,17 @@ html, body {
 
 /* Para gráficos/íconos estilo pixel */
 .pixelated { image-rendering: pixelated; }
+
+.pixel-frame{
+  box-shadow: 0 0 0 2px #0f172a, inset -4px -4px 0 #22d3ee;
+}
+
+.full-bleed{
+  width: 100vw;
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
+}
+
