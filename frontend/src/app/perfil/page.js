@@ -40,7 +40,13 @@ export default function ProfilePage() {
       const next = { name: data.name || '', email: data.email || '' };
       setU(next);
       setInitialU(next);
-      // if (data.avatar_url) setAvatarPreview(data.avatar_url);
+      if (data.avatar_path){
+        setAvatarPreview(`${process.env.NEXT_PUBLIC_API_URL}${data.avatar_path}`);
+      } else {
+        // Si no tiene avatar, podemos mostrar uno por defecto
+        setAvatarPreview('/default-avatar.svg');
+      }
+
     } catch (e) {
       if (e.response?.status === 401) router.push('/login');
     } finally {
@@ -96,6 +102,7 @@ export default function ProfilePage() {
     try {
       let res;
       if (avatarFile) {
+        // si hay un archivo, lo enviamos como formData
         const form = new FormData();
         form.append('name', u.name);
         form.append('email', u.email);
@@ -108,9 +115,15 @@ export default function ProfilePage() {
       setMsg('Perfil actualizado');
       toast.success('Perfil actualizado');
       setUser(prev => ({ ...(prev ?? {}), name: res.data.user.name, email: res.data.user.email }));
+      
+      // actualizamos el preview del nuevo avatar si se devolvió en la respuesta
+      if(res.data.user.avatar_path){
+        setAvatarPreview(`${process.env.NEXT_PUBLIC_API_URL}${res.data.user.avatar_path}`);
+      }
+      
       setAvatarFile(null);
       // console.log("SUCCESS", res.status, res.data);
-      // if (res.data.avatar_url) setAvatarPreview(res.data.avatar_url);
+
     } catch (e) {
       console.log("ERROR", e, e);
       if (e.response?.status === 422) {
@@ -189,6 +202,34 @@ export default function ProfilePage() {
           {err && <div className="mb-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
 
           <form onSubmit={onSubmitProfile} className="grid gap-3">
+
+            {/* 👇 NUEVO bloque para el avatar */}
+            <label className="text-sm">Avatar (opcional)</label>
+            <input type="file" accept="image/*" onChange={onFileChange} />
+
+            {avatarPreview ? (
+              // Si el usuario seleccionó una nueva imagen
+              <img
+                src={avatarPreview}
+                alt="preview"
+                className="mt-2 h-20 w-20 rounded-full object-cover border"
+              />
+            ) : u.avatar_path ? (
+              // Si tiene avatar guardado en el backend
+              <img
+                src={`${process.env.NEXT_PUBLIC_API_URL}${u.avatar_path}`}
+                alt="avatar"
+                className="mt-2 h-20 w-20 rounded-full object-cover border"
+              />
+            ) : (
+              // Si no tiene imagen, mostrar una por defecto
+              <img
+                src="/default-avatar.png"
+                alt="default avatar"
+                className="mt-2 h-20 w-20 rounded-full object-cover border"
+              />
+            )}
+
             <label className="text-sm">Nombre</label>
             <input
               className="rounded border p-2"
@@ -204,13 +245,6 @@ export default function ProfilePage() {
               onChange={(e) => setU(s => ({ ...s, email: e.target.value }))}
             />
             {fieldErrs.email && <p className="text-xs text-red-600">{fieldErrs.email[0]}</p>}
-
-            {/* <label className="text-sm">Avatar (opcional)</label>
-            <input type="file" accept="image/*" onChange={onFileChange} />
-            {avatarPreview && (
-              <img src={avatarPreview} alt="preview" className="mt-2 h-20 w-20 rounded-full object-cover border" />
-            )}
-            {fieldErrs.avatar && <p className="text-xs text-red-600">{fieldErrs.avatar[0]}</p>} */}
 
             <div className="mt-2 flex gap-2">
               <button

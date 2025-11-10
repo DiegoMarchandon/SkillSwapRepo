@@ -1,4 +1,7 @@
 'use client';
+import { createAvatar } from "@dicebear/core";
+import * as botttsNeutral from "@dicebear/bottts-neutral";
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import RegisterForm from '../../components/forms/RegisterForm';
@@ -19,6 +22,13 @@ export default function RegisterPage() {
     e.preventDefault();
     setError(null);
 
+    // 1️⃣ Generar avatar SVG
+    const avatar = createAvatar(botttsNeutral, { seed: name });
+    const svg = avatar.toString();
+
+    // 2️⃣ Convertir a base64 para enviarlo
+    const avatarBase64 = Buffer.from(svg).toString("base64");
+
     try {
       // TOKEN-BASED (sin CSRF cookie)
       const res = await api.post('/register', {
@@ -26,6 +36,7 @@ export default function RegisterPage() {
         email,
         password,
         password_confirmation: passwordConfirm,
+        avatar: avatarBase64
       });
 
       const { user, token } = res.data;

@@ -75,6 +75,12 @@ WebRTC permite la comunicación P2P entre navegadores, pero no define cómo los 
 ### métricas de WebRTC
 en webrtc/page.js, además de ver las cámaras y conectarnos al servidor de signaling, vamos a ver las métricas. Tanto para el análisis técnico como para evidencia objetiva frente a incidencias. 
 
+### dompdf para generar PDFs de los reportes de usuarios
+El administrador generará PDFs referidos a sesiones especificas de un determinado usuario.
+
+### DiceBear (estilo: bottts-neutral) para generar avatares aleatorios.
+Esta libería genera avatares aleatorios para usuarios ya creados y futuros usuarios. Se encuentra instalada localmente para no depender de la red.
+
 
 ### carpeta coturn
 no forma parte del código de mi aplicación, sino que es un servicio de red independiente, como una base de datos.
