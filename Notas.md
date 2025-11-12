@@ -227,3 +227,46 @@ Explicación del o que hace el código en ese archivo:
 - En una hacé clic en “Iniciar llamada”.
 - En la otra no haces nada: se va a conectar automáticamente.
 - Vas a ver tu cámara local y el video remoto.
+
+return ( 
+    <div> 
+      <Header /> 
+      <div className="max-w-4xl mx-auto p-6 bg-white text-gray-900 rounded-2xl shadow"> 
+        <section className="rounded-2xl bg-white p-6 shadow"> 
+          {showReg && ( 
+            <div className="mb-3 rounded-md border border-green-300 bg-green-50 px-3 py-2 text-green-800 text-sm"> 
+            Registro exitoso. ¡Bienvenido! 
+            </div> 
+          )} 
+          <h2 className="mb-4 text-xl font-semibold">
+            Perfil
+          </h2> 
+          {msg && 
+          <div className="mb-3 rounded bg-green-50 px-3 py-2 text-sm text-green-700">
+            {msg}
+          </div>} 
+            {err && 
+            <div className="mb-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">
+              {err}
+            </div>} 
+          <PixelDNI 
+            u={u} 
+            onSubmitProfile={onSubmitProfile} 
+            setU={setU} 
+            fieldErrs={fieldErrs} 
+            saving={saving} 
+            onRestore={onRestore} 
+            avatarPreview={avatarPreview} 
+          /> 
+        </section> 
+        <PasswordDialog 
+          pwd={pwd} 
+          setPwd={setPwd} 
+          onSubmitPassword={onSubmitPassword} 
+          savingPwd={savingPwd} 
+          pwdMsg={pwdMsg} 
+          pwdErr={pwdErr} 
+        /> 
+      </div> 
+    </div> 
+  );

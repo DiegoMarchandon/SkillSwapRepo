@@ -6,6 +6,9 @@ import api from '../../utils/axios';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import Header from '../../components/layout/Header';
+import PixelDNI from '../../components/perfil/PixelDNI';
+import PasswordDialog from '../../components/perfil/PasswordDialog';
+import LavaLampBackground from '../../components/perfil/LavaLampBackground';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -14,8 +17,8 @@ export default function ProfilePage() {
   const { user: userCtx, setUser } = useAuth();
 
   const [loading, setLoading] = useState(true);
-  const [u, setU] = useState({ name: '', email: '' });
-  const [initialU, setInitialU] = useState({ name: '', email: '' });
+  const [u, setU] = useState({ name: '', email: '', id: '' });
+  const [initialU, setInitialU] = useState({ name: '', email: '',id:'' });
 
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
@@ -34,10 +37,12 @@ export default function ProfilePage() {
   // Mostrar aviso cuando se llega con ?ok=registro
   const [showReg, setShowReg] = useState(false);
 
+  
+
   const loadMe = async () => {
     try {
       const { data } = await api.get('/user');
-      const next = { name: data.name || '', email: data.email || '' };
+      const next = { name: data.name || '', email: data.email || '', id: data.id };
       setU(next);
       setInitialU(next);
       if (data.avatar_path){
@@ -58,7 +63,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (userCtx && (userCtx.name || userCtx.email)) {
-      const next = { name: userCtx.name ?? '', email: userCtx.email ?? '' };
+      const next = { name: userCtx.name ?? '', email: userCtx.email ?? '', id: userCtx.id ?? '' };
       setU(next);
       setInitialU(next);
     }
@@ -107,6 +112,7 @@ export default function ProfilePage() {
         form.append('name', u.name);
         form.append('email', u.email);
         form.append('avatar', avatarFile);
+        form.append('id',u.id);
         res = await api.put('/profile', form, { headers: { 'Content-Type': 'multipart/form-data' } });
       } else {
         res = await api.put('/profile', { name: u.name, email: u.email });
@@ -114,7 +120,7 @@ export default function ProfilePage() {
 
       setMsg('Perfil actualizado');
       toast.success('Perfil actualizado');
-      setUser(prev => ({ ...(prev ?? {}), name: res.data.user.name, email: res.data.user.email }));
+      setUser(prev => ({ ...(prev ?? {}), name: res.data.user.name, email: res.data.user.email, id: res.data.user.id }));
       
       // actualizamos el preview del nuevo avatar si se devolvió en la respuesta
       if(res.data.user.avatar_path){
@@ -186,124 +192,47 @@ export default function ProfilePage() {
   if (loading) return <div className="p-6">Cargando…</div>;
 
   return (
-    <div>
+    <div className="relative min-h-screen flex flex-col bg-gray-900">
       <Header />
-      <div className="max-w-4xl mx-auto p-6 bg-white text-gray-900 rounded-2xl shadow">
-        <section className="rounded-2xl bg-white p-6 shadow">
+      <div className="relative z-20 max-w-4xl mx-auto p-6 w-full">
+        {/* LavaLampBackground dentro del contenedor pero posicionado absolutamente para cubrir toda la pantalla */}
+        <div className="fixed inset-0 -z-50">
+          <LavaLampBackground />
+        </div>
+        
+        <section className="rounded-2xl p-6 shadow relative z-20 bg-transparent">
           {showReg && (
-            <div className="mb-3 rounded-md border border-green-300 bg-green-50 px-3 py-2 text-green-800 text-sm">
+            <div className="mb-3 rounded-md border border-green-300 bg-green-50/10 px-3 py-2 text-green-300 text-sm">
               Registro exitoso. ¡Bienvenido!
             </div>
           )}
-
-          <h2 className="mb-4 text-xl font-semibold">Perfil</h2>
-
-          {msg && <div className="mb-3 rounded bg-green-50 px-3 py-2 text-sm text-green-700">{msg}</div>}
-          {err && <div className="mb-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
-
-          <form onSubmit={onSubmitProfile} className="grid gap-3">
-
-            {/* 👇 NUEVO bloque para el avatar */}
-            <label className="text-sm">Avatar (opcional)</label>
-            <input type="file" accept="image/*" onChange={onFileChange} />
-
-            {avatarPreview ? (
-              // Si el usuario seleccionó una nueva imagen
-              <img
-                src={avatarPreview}
-                alt="preview"
-                className="mt-2 h-20 w-20 rounded-full object-cover border"
-              />
-            ) : u.avatar_path ? (
-              // Si tiene avatar guardado en el backend
-              <img
-                src={`${process.env.NEXT_PUBLIC_API_URL}${u.avatar_path}`}
-                alt="avatar"
-                className="mt-2 h-20 w-20 rounded-full object-cover border"
-              />
-            ) : (
-              // Si no tiene imagen, mostrar una por defecto
-              <img
-                src="/default-avatar.png"
-                alt="default avatar"
-                className="mt-2 h-20 w-20 rounded-full object-cover border"
-              />
-            )}
-
-            <label className="text-sm">Nombre</label>
-            <input
-              className="rounded border p-2"
-              value={u.name}
-              onChange={(e) => setU(s => ({ ...s, name: e.target.value }))}
-            />
-            {fieldErrs.name && <p className="text-xs text-red-600">{fieldErrs.name[0]}</p>}
-
-            <label className="text-sm">Email</label>
-            <input
-              className="rounded border p-2"
-              value={u.email}
-              onChange={(e) => setU(s => ({ ...s, email: e.target.value }))}
-            />
-            {fieldErrs.email && <p className="text-xs text-red-600">{fieldErrs.email[0]}</p>}
-
-            <div className="mt-2 flex gap-2">
-              <button
-                disabled={saving}
-                className={`rounded cursor-pointer bg-slate-500 px-4 py-2 text-white ${saving ? 'opacity-60' : ''}`}
-              >
-                {saving ? 'Guardando…' : 'Guardar cambios'}
-              </button>
-              <button
-                type="button"
-                onClick={onRestore}
-                className="rounded cursor-pointer bg-gray-200 px-4 py-2"
-              >
-                Restaurar
-              </button>
-            </div>
-          </form>
+  
+          <h2 className="mb-4 text-xl font-semibold text-white">Perfil</h2>
+          {msg && <div className="mb-3 rounded bg-green-50/10 px-3 py-2 text-sm text-green-300">{msg}</div>}
+          {err && <div className="mb-3 rounded bg-red-50/10 px-3 py-2 text-sm text-red-300">{err}</div>}
+  
+          <PixelDNI
+            u={u}
+            onSubmitProfile={onSubmitProfile}
+            setU={setU}
+            fieldErrs={fieldErrs}
+            saving={saving}
+            onRestore={onRestore}
+            avatarPreview={avatarPreview}
+          />
         </section>
-
-        <section className="rounded-2xl bg-white p-6 shadow">
-          <h2 className="mb-4 text-xl font-semibold">Cambiar contraseña</h2>
-
-          {pwdMsg && <div className="mb-3 rounded bg-green-50 px-3 py-2 text-sm text-green-700">{pwdMsg}</div>}
-          {pwdErr && <div className="mb-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{pwdErr}</div>}
-
-          <form onSubmit={onSubmitPassword} className="grid gap-3">
-            <label className="text-sm">Contraseña actual</label>
-            <input
-              type="password"
-              className="rounded border p-2"
-              value={pwd.current_password}
-              onChange={(e) => setPwd(s => ({ ...s, current_password: e.target.value }))}
-            />
-
-            <label className="text-sm">Nueva contraseña</label>
-            <input
-              type="password"
-              className="rounded border p-2"
-              value={pwd.password}
-              onChange={(e) => setPwd(s => ({ ...s, password: e.target.value }))}
-            />
-
-            <label className="text-sm">Confirmar nueva contraseña</label>
-            <input
-              type="password"
-              className="rounded border p-2"
-              value={pwd.password_confirmation}
-              onChange={(e) => setPwd(s => ({ ...s, password_confirmation: e.target.value }))}
-            />
-
-            <button
-              disabled={savingPwd}
-              className={`mt-2 rounded cursor-pointer bg-slate-500 px-4 py-2 text-white ${savingPwd ? 'opacity-60' : ''}`}
-            >
-              {savingPwd ? 'Actualizando…' : 'Actualizar contraseña'}
-            </button>
-          </form>
-        </section>
+  
+        <PasswordDialog
+          pwd={pwd}
+          setPwd={setPwd}
+          onSubmitPassword={onSubmitPassword}
+          savingPwd={savingPwd}
+          pwdMsg={pwdMsg}
+          pwdErr={pwdErr}
+        />
       </div>
     </div>
-  );
+);
+  
+  
 }

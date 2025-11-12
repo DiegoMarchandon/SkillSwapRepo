@@ -11,7 +11,7 @@ const tabs = [
 export default function PerfilLayout({ children }) {
   const pathname = usePathname();
   return (
-    <div className="mx-auto max-w-5xl p-6">
+    <div className="relative z-30 mx-auto max-w-5xl p-6">
       <nav className="mb-6 flex gap-2">
         {tabs.map(t => {
           const active = pathname === t.href;
