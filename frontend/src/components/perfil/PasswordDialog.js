@@ -11,9 +11,9 @@ export default function PasswordDialog({ pwd, setPwd, onSubmitPassword, savingPw
       {/* Botón principal */}
       <button
         onClick={() => setShowDialog(true)}
-        className="px-5 py-2 bg-[#66a366] border-4 border-[#000] 
-                   shadow-[4px_4px_0_#67E8F9] text-white 
-                   cursor-pointer hover:bg-[#77b377] active:shadow-none"
+        className="px-5 py-2 bg-[#bedbff] border-4 border-[#000] 
+                   shadow-[3px_3px_0_#67E8F9] text-black text-[20px]
+                   cursor-pointer hover:bg-[#c0e0e8] active:shadow-none"
       >
         Cambiar contraseña
       </button>

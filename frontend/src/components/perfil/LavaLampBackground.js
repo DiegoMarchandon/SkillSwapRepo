@@ -17,12 +17,12 @@ export default function LavaLampBackground() {
             height: `${180 + Math.random() * 180}px`,
           }}
           animate={{
-            x: [0, 100, -100, 0],
-            y: [0, -80, 80, 0],
+            x: [0, 200, -200, 0],
+            y: [0, -100, 100, 0],
             scale: [1, 1.3, 0.8, 1],
           }}
           transition={{
-            duration: 20 + i * 4,
+            duration: 10 + i * 4,
             repeat: Infinity,
             ease: "easeInOut",
           }}

@@ -9,6 +9,7 @@ import Header from '../../components/layout/Header';
 import PixelDNI from '../../components/perfil/PixelDNI';
 import PasswordDialog from '../../components/perfil/PasswordDialog';
 import LavaLampBackground from '../../components/perfil/LavaLampBackground';
+import Subnavbar from '../../components/perfil/Subnavbar';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -36,8 +37,6 @@ export default function ProfilePage() {
 
   // Mostrar aviso cuando se llega con ?ok=registro
   const [showReg, setShowReg] = useState(false);
-
-  
 
   const loadMe = async () => {
     try {
@@ -194,7 +193,10 @@ export default function ProfilePage() {
   return (
     <div className="relative min-h-screen flex flex-col bg-gray-900">
       <Header />
-      <div className="relative z-20 max-w-4xl mx-auto p-6 w-full">
+      <Subnavbar
+        actualTab={'Datos'}
+      />
+      <div className="relative mt-12 z-20 max-w-4xl mx-auto p-6 w-full">
         {/* LavaLampBackground dentro del contenedor pero posicionado absolutamente para cubrir toda la pantalla */}
         <div className="fixed inset-0 -z-50">
           <LavaLampBackground />
@@ -206,8 +208,7 @@ export default function ProfilePage() {
               Registro exitoso. ¡Bienvenido!
             </div>
           )}
-  
-          <h2 className="mb-4 text-xl font-semibold text-white">Perfil</h2>
+
           {msg && <div className="mb-3 rounded bg-green-50/10 px-3 py-2 text-sm text-green-300">{msg}</div>}
           {err && <div className="mb-3 rounded bg-red-50/10 px-3 py-2 text-sm text-red-300">{err}</div>}
   

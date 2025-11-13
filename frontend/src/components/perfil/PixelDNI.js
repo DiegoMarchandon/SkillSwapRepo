@@ -124,8 +124,8 @@ export default function PixelDNI({ u, onSubmitProfile, setU, fieldErrs, saving, 
           <button
             type="button"
             onClick={onRestore}
-            className="px-3 py-1 bg-[#dcdcdc] border-2 border-[#000] shadow-[2px_2px_0_#000] 
-                       hover:bg-[#ececec] active:shadow-none"
+            className="px-3 py-1 bg-gray-400 border-2 border-[#000] shadow-[2px_2px_0_#000] 
+                       hover:bg-[#baabab] active:shadow-none"
           >
             Restaurar
           </button>
