@@ -89,14 +89,18 @@ export default function SearchPage() {
               const skillNiv = row?.skill?.nivel;
               const pivotId  = row?.skill?.pivot_id;
 
-              const goCalendario = () => {
+const goCalendario = () => {
   if (!userId) return;
+
   const params = new URLSearchParams();
+
   if (skillId) params.set('skill_id', String(skillId));
-  // Si quisieras usar el pivot en vez de habilidad: params.set('usuario_habilidad_id', String(pivotId));
+  if (userName) params.set('name', userName); // 👈 pasamos el nombre del instructor
+
   const q = params.toString() ? `?${params.toString()}` : '';
   router.push(`/instructores/${userId}${q}`);
 };
+
 
               return (
                 <li key={i} className="flex items-center gap-3 py-3">
