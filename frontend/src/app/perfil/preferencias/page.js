@@ -173,7 +173,7 @@ export default function PreferenciasPage() {
               >
                 <div className="flex justify-between items-center">
                   <div>
-                    <h4 className="font-semibold text-gray-900">{teacher.name} "su id:"{teacher.id}</h4>
+                    <h4 className="font-semibold text-gray-900">{teacher.name} &quot;su id:&quot;{teacher.id}</h4>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {teacher.skills.map((skill, index) => (
                         <span
