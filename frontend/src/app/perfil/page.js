@@ -38,27 +38,32 @@ export default function ProfilePage() {
   // Mostrar aviso cuando se llega con ?ok=registro
   const [showReg, setShowReg] = useState(false);
 
-  const loadMe = async () => {
-    try {
-      const { data } = await api.get('/user');
-      const next = { name: data.name || '', email: data.email || '', id: data.id };
-      setU(next);
-      setInitialU(next);
-      if (data.avatar_path){
-        setAvatarPreview(`${process.env.NEXT_PUBLIC_API_URL}${data.avatar_path}`);
-      } else {
-        // Si no tiene avatar, podemos mostrar uno por defecto
-        setAvatarPreview('/default-avatar.svg');
+  
+
+  useEffect(() => { 
+    
+    const loadMe = async () => {
+      try {
+        const { data } = await api.get('/user');
+        const next = { name: data.name || '', email: data.email || '', id: data.id };
+        setU(next);
+        setInitialU(next);
+        if (data.avatar_path){
+          setAvatarPreview(`${process.env.NEXT_PUBLIC_API_URL}${data.avatar_path}`);
+        } else {
+          // Si no tiene avatar, podemos mostrar uno por defecto
+          setAvatarPreview('/default-avatar.svg');
+        }
+  
+      } catch (e) {
+        if (e.response?.status === 401) router.push('/login');
+      } finally {
+        setLoading(false);
       }
+    };
 
-    } catch (e) {
-      if (e.response?.status === 401) router.push('/login');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { loadMe(); }, [router]);
+    loadMe(); 
+  }, [router]);
 
   useEffect(() => {
     if (userCtx && (userCtx.name || userCtx.email)) {

@@ -76,7 +76,7 @@ export default function MisReservasPage() {
     }
   }
 
-  const now = useMemo(() => new Date(), [loading]); // recalcular cuando recarga
+  const now = useMemo(() => new Date(), []); // recalcular cuando recarga
 
   return (
     <Suspense fallback={<div>Cargando...</div>}>

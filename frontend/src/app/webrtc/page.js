@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import io from 'socket.io-client';
 import api from '../../utils/axios';
 import { useAuth } from '../../context/AuthContext';
@@ -20,51 +20,51 @@ export default function WebRTCPage() {
   const meetingId = searchParams.get('meeting_id');
   const currentUserId = searchParams.get('current_user_id');
   const otherUserId = searchParams.get('other_user_id');
-  
-
   // Obtener receiverId y usuarioHabilidadId de la URL
   const usuarioHabilidadId = searchParams.get('usuario_habilidad_id');
-
+  
 
   // 🧩 Recolección de métricas centralizada
-  const collectStats = async () => {
-    const stats = await pcRef.current.getStats();
-    stats.forEach(report => {
-      if (report.type === 'outbound-rtp' && report.kind === 'video') {
-        metricsRef.current.push({
-          timestamp: report.timestamp,
-          bytesSent: report.bytesSent,
-          framesPerSecond: report.framesPerSecond,
-          packetsSent: report.packetsSent,
-          roundTripTime: report.roundTripTime
-        });
-      }
-      if (report.type === 'inbound-rtp' && report.kind === 'video') {
-        metricsRef.current.push({
-          timestamp: report.timestamp,
-          bytesReceived: report.bytesReceived,
-          packetsLost: report.packetsLost,
-          jitter: report.jitter
-        });
-      }
-    });
-  };
-
-  const startCollecting = () => {
-    if (!statsIntervalRef.current) {
-      statsIntervalRef.current = setInterval(collectStats, 5000);
-    }
-  };
-
-  const stopCollecting = () => {
-    if (statsIntervalRef.current) {
-      clearInterval(statsIntervalRef.current);
-      statsIntervalRef.current = null;
-    }
-    console.table(metricsRef.current);
-  };
-
+  
   useEffect(() => {
+    
+    const collectStats = async () => {
+      const stats = await pcRef.current.getStats();
+      stats.forEach(report => {
+        if (report.type === 'outbound-rtp' && report.kind === 'video') {
+          metricsRef.current.push({
+            timestamp: report.timestamp,
+            bytesSent: report.bytesSent,
+            framesPerSecond: report.framesPerSecond,
+            packetsSent: report.packetsSent,
+            roundTripTime: report.roundTripTime
+          });
+        }
+        if (report.type === 'inbound-rtp' && report.kind === 'video') {
+          metricsRef.current.push({
+            timestamp: report.timestamp,
+            bytesReceived: report.bytesReceived,
+            packetsLost: report.packetsLost,
+            jitter: report.jitter
+          });
+        }
+      });
+    };
+  
+    const startCollecting = () => {
+      if (!statsIntervalRef.current) {
+        statsIntervalRef.current = setInterval(collectStats, 5000);
+      }
+    };
+  
+    const stopCollecting = () => {
+      if (statsIntervalRef.current) {
+        clearInterval(statsIntervalRef.current);
+        statsIntervalRef.current = null;
+      }
+      console.table(metricsRef.current);
+    };
+
     socketRef.current = io('http://localhost:4000');
 
     pcRef.current = new RTCPeerConnection({
@@ -121,7 +121,7 @@ export default function WebRTCPage() {
     // Escuchar ICE candidates remotos
     socketRef.current.on('ice-candidate', async (candidate) => {
       if(!pcRef.current || pcRef.current.signalingState === 'closed'){
-        console.warn("Ignorando ICE candidate: conexijh");
+        console.warn("Ignorando ICE candidate: conexión cerrada");
       }
       
       if (!pcRef.current.remoteDescription) {
@@ -197,6 +197,7 @@ export default function WebRTCPage() {
     setTimeout(startCallAutomatically, 1000);
 
     return () => {
+      stopCollecting();
       if (statsIntervalRef.current) clearInterval(statsIntervalRef.current);
       
       if(pcRef.current){
@@ -209,14 +210,11 @@ export default function WebRTCPage() {
         socketRef.current = null;
       }
     };
-
-
-
-  }, []);
+  }, [isCaller, meetingId, otherUserId, usuarioHabilidadId, startCall]);
 
   // 🔴 Terminar llamada
   const endCall = async () => {
-    stopCollecting();
+    
     console.log('🔴 Terminando llamada...');
     try {
       // 1. Actualizar meeting_ended_at en el backend

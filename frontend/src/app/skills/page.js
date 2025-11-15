@@ -12,7 +12,7 @@ export default function SkillsPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
 
-  const [tipo, setTipo] = useState('ofrecida'); // ofrecida | deseada
+  const [tipo, setTipo] = useState('ofrecida');
   const [list, setList] = useState([]);
   const [form, setForm] = useState({ nombre: '', nivel: '', estado: 'activa' });
   const [busy, setBusy] = useState(false);
@@ -23,21 +23,38 @@ export default function SkillsPage() {
     if (!loading && !user) router.push('/login');
   }, [loading, user, router]);
 
-  // cargar lista
-  const load = async (t = tipo) => {
-    setLoadingList(true);
-    try {
-      const { data } = await api.get('/my-skills', { params: { tipo: t } });
-      setList(data);
-    } catch (e) {
-      // opcional: toast.error('No se pudo cargar');
-    } finally {
-      setLoadingList(false);
-    }
-  };
+  // SOLUCIÓN: Mover la lógica de load dentro de cada useEffect
+  useEffect(() => {
+    const load = async () => {
+      setLoadingList(true);
+      try {
+        const { data } = await api.get('/my-skills', { params: { tipo: 'ofrecida' } });
+        setList(data);
+      } catch (e) {
+        // opcional: toast.error('No se pudo cargar');
+      } finally {
+        setLoadingList(false);
+      }
+    };
 
-  useEffect(() => { load('ofrecida'); }, []);
-  useEffect(() => { load(tipo); }, [tipo]);
+    load();
+  }, []); // Solo se ejecuta una vez al montar
+
+  useEffect(() => {
+    const load = async () => {
+      setLoadingList(true);
+      try {
+        const { data } = await api.get('/my-skills', { params: { tipo } });
+        setList(data);
+      } catch (e) {
+        // opcional: toast.error('No se pudo cargar');
+      } finally {
+        setLoadingList(false);
+      }
+    };
+
+    load();
+  }, [tipo]); // Se ejecuta cuando cambia el tipo
 
   const add = async (e) => {
     e.preventDefault();

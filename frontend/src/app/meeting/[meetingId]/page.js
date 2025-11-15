@@ -19,6 +19,19 @@ export default function MeetingPage() {
   });
 
   useEffect(() => {
+    async function loadMeetingData() {
+      try {
+        const { data } = await api.get(`/meeting/${meetingId}`);
+        setReserva(data.reserva);
+        setIsInstructor(data.isInstructor);
+        setMeetingStarted(data.meetingStarted);
+        console.log("hola");
+      } catch (error) {
+        console.error('Error loading meeting:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
     loadMeetingData();
   }, [meetingId]);
 
@@ -60,6 +73,22 @@ export default function MeetingPage() {
 
   // 3. POLLING PARA ALUMNOS
   useEffect(() => {
+
+    const initializeWebRTC = () => {
+      const currentUserId = isInstructor ? reserva.instructor_id : reserva.alumno_id;
+      const otherUserId   = isInstructor ? reserva.alumno_id     : reserva.instructor_id;
+    
+      if (!currentUserId || !otherUserId) {
+        alert('Error: IDs de usuario no disponibles. Recarga la página.');
+        return;
+      }
+    
+      window.location.href =
+        `/webrtc?meeting_id=${meetingId}` +
+        `&current_user_id=${currentUserId}` +
+        `&other_user_id=${otherUserId}`;
+    }
+
     if (!isInstructor && !meetingStarted && reserva) {
       console.log('🔄 Iniciando polling para alumno...');
       
@@ -84,19 +113,7 @@ export default function MeetingPage() {
     }
   }, [isInstructor, meetingStarted, meetingId, reserva]);
 
-  async function loadMeetingData() {
-    try {
-      const { data } = await api.get(`/meeting/${meetingId}`);
-      setReserva(data.reserva);
-      setIsInstructor(data.isInstructor);
-      setMeetingStarted(data.meetingStarted);
-      console.log("hola");
-    } catch (error) {
-      console.error('Error loading meeting:', error);
-    } finally {
-      setLoading(false);
-    }
-  }
+  
 
   async function startMeeting() {
     try {
@@ -119,22 +136,6 @@ export default function MeetingPage() {
     navigator.clipboard.writeText(window.location.href);
     alert('Enlace copiado al portapapeles!');
   }
-
-
-function initializeWebRTC() {
-  const currentUserId = isInstructor ? reserva.instructor_id : reserva.alumno_id;
-  const otherUserId   = isInstructor ? reserva.alumno_id     : reserva.instructor_id;
-
-  if (!currentUserId || !otherUserId) {
-    alert('Error: IDs de usuario no disponibles. Recarga la página.');
-    return;
-  }
-
-  window.location.href =
-    `/webrtc?meeting_id=${meetingId}` +
-    `&current_user_id=${currentUserId}` +
-    `&other_user_id=${otherUserId}`;
-}
 
 
   if (loading) {
