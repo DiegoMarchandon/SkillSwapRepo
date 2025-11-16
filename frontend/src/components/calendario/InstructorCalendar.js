@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import api from '../../utils/axios';
@@ -42,7 +42,7 @@ export default function InstructorCalendar({ instructorId, skillId, instructorNa
     };
   }, [month]);
 
-  async function loadSlots() {
+  const loadSlots = useCallback(async () => {
     if (!instructorId) return;
     setLoading(true);
     try {
@@ -56,11 +56,11 @@ export default function InstructorCalendar({ instructorId, skillId, instructorNa
     } finally {
       setLoading(false);
     }
-  }
+  }, [instructorId, range.from, range.to, skillId]);
 
   useEffect(() => {
     loadSlots();
-  }, [instructorId, range.from, range.to, skillId]);
+  }, [loadSlots]);
 
   const byDay = useMemo(() => {
     const map = {};
@@ -75,7 +75,7 @@ export default function InstructorCalendar({ instructorId, skillId, instructorNa
     return map;
   }, [slots]);
 
-  async function reservar(disponibilidad_id) {
+  const reservar = useCallback(async (disponibilidad_id) => {
     if (!confirm('¿Confirmar reserva de este horario?')) return;
     setSending(disponibilidad_id);
     try {
@@ -91,7 +91,7 @@ export default function InstructorCalendar({ instructorId, skillId, instructorNa
     } finally {
       setSending(null);
     }
-  }
+  }, [router, loadSlots]);
 
   function Header() {
     return (
@@ -112,7 +112,7 @@ export default function InstructorCalendar({ instructorId, skillId, instructorNa
             className="h-9 w-9 md:w-10 inline-flex items-center justify-center border-[3px] border-black bg-slate-200 text-xs font-semibold hover:translate-x-[1px] hover:translate-y-[1px] hover:bg-slate-100 active:translate-x-[2px] active:translate-y-[2px] shadow-[3px_3px_0_0_rgba(0,0,0,1)]"
             aria-label="Mes anterior"
           >
-            ‹
+            {'<'}
           </button>
           <button
             type="button"
@@ -127,7 +127,7 @@ export default function InstructorCalendar({ instructorId, skillId, instructorNa
             className="h-9 w-9 md:w-10 inline-flex items-center justify-center border-[3px] border-black bg-slate-200 text-xs font-semibold hover:translate-x-[1px] hover:translate-y-[1px] hover:bg-slate-100 active:translate-x-[2px] active:translate-y-[2px] shadow-[3px_3px_0_0_rgba(0,0,0,1)]"
             aria-label="Mes siguiente"
           >
-            ›
+            {'>'}
           </button>
         </div>
       </div>
@@ -207,8 +207,7 @@ export default function InstructorCalendar({ instructorId, skillId, instructorNa
                         title={`${toLocal(s.inicio_utc)} - ${toLocal(s.fin_utc)}`}
                       >
                         <span>
-                          {toLocal(s.inicio_utc, 'HH:mm')}–
-                          {toLocal(s.fin_utc, 'HH:mm')}
+                          {toLocal(s.inicio_utc, 'HH:mm')} - {toLocal(s.fin_utc, 'HH:mm')}
                         </span>
                         <span className="text-[10px] font-semibold">
                           {libre ? 'Libre' : 'Ocupado'}

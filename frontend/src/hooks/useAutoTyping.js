@@ -1,11 +1,6 @@
-
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
 
-export default function useAutoTyping(fixedText,words, initialValue = "") {
-//   const fixedText = "Quiero aprender... ";
-//   const words = ["música", "matemáticas", "inglés"];
-//   const [displayedText, setDisplayedText] = useState("");
+export default function useAutoTyping(fixedText, words = [], initialValue = "") {
   const [displayedText, setDisplayedText] = useState(initialValue);
   const [isFixedTextDone, setIsFixedTextDone] = useState(false);
   const [wordIndex, setWordIndex] = useState(0);
@@ -19,18 +14,18 @@ export default function useAutoTyping(fixedText,words, initialValue = "") {
         const timeout = setTimeout(() => {
           setDisplayedText(fixedText.substring(0, subIndex + 1));
           setSubIndex(subIndex + 1);
-        }, 100); // velocidad escritura
+        }, 100);
         return () => clearTimeout(timeout);
       } else {
         setIsFixedTextDone(true);
-        setSubIndex(0); // reset para palabras dinámicas
+        setSubIndex(0);
       }
     }
-  }, [subIndex, isFixedTextDone]);
+  }, [subIndex, isFixedTextDone, fixedText]);
 
   // Animación para las palabras dinámicas
   useEffect(() => {
-    if (!isFixedTextDone) return;
+    if (!isFixedTextDone || words.length === 0) return;
 
     const currentWord = words[wordIndex];
     let timeout;
@@ -54,6 +49,7 @@ export default function useAutoTyping(fixedText,words, initialValue = "") {
     }
 
     return () => clearTimeout(timeout);
-  }, [subIndex, isDeleting, wordIndex, isFixedTextDone]);
+  }, [subIndex, isDeleting, wordIndex, isFixedTextDone, words, fixedText]);
+
   return displayedText;
 }
