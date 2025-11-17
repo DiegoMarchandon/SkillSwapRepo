@@ -1,15 +1,11 @@
 {
+    "$schema": "https://railway.app/railway.schema.json",
     "build": {
-      "builder": "heroku/buildpacks:20",
-      "buildpacks": [
-        {
-          "url": "heroku/php"
-        }
-      ]
+      "builder": "NIXPACKS"
     },
     "deploy": {
-      "startCommand": "php artisan serve --host=0.0.0.0 --port=${PORT}",
-      "healthcheckPath": "/",
+      "startCommand": "php artisan serve --host=0.0.0.0 --port=$PORT",
+      "healthcheckPath": "/api/health",
       "healthcheckTimeout": 300
     }
-  }
+}
