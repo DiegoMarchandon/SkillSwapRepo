@@ -54,9 +54,15 @@ export default function PixelDNI({
                    font-mono text-sm tracking-tight pixelated p-4 grid grid-cols-2 gap-3"
       >
         {/* Fondo */}
-        <div className="absolute inset-0 -z-10">
-          <Image src="/dni-bg.png" alt="" fill sizes="340px" className="object-cover opacity-80" />
-        </div>
+        <img src="/dni-bg.png" onError={(e) => (e.currentTarget.style.display = 'none')} className="absolute inset-0 w-full h-full object-cover opacity-80" />
+
+        {/* Efecto de brillo */}
+        <motion.div
+          className="absolute top-[-75%] left-[-50%] w-[50%] h-[200%] 
+                     bg-gradient-to-r from-transparent via-white/50 to-transparent 
+                     rotate-[25deg] z-20 pointer-events-none"
+          animate={controls}
+        />
 
         {/* Contenido */}
         <div className="relative z-10 col-span-2 flex gap-3">
@@ -73,6 +79,7 @@ export default function PixelDNI({
               sizes="112px"
               className="object-cover"
               priority
+              
             />
           </div>
 
@@ -102,10 +109,7 @@ export default function PixelDNI({
 
         {/* Controles */}
         <div className="relative z-10 col-span-2 mt-2 flex items-center justify-between gap-3">
-          <label className="inline-flex items-center gap-2">
-            <span className="text-sm">Cambiar avatar</span>
-            <input type="file" accept="image/*" onChange={onFileChange} />
-          </label>
+          
 
           <div className="flex gap-2">
             <button

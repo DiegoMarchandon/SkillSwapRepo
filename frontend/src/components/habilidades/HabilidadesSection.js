@@ -59,7 +59,7 @@ export default function HabilidadesSection({
             placeholder="Nueva habilidad"
             value={form.nombre}
             onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
-            className="w-full md:w-1/3 bg-[#cde8ff]/70 border-2 border-[#0f172a] text-[#0f172a] rounded-md px-3 py-2 placeholder:text-[#0f172a]/60 focus:outline-none focus:ring-2 focus:ring-[#8FD0FF]"
+            className="w-full md:w-1/3 bg-[#cde8ff]/70 border-2 border-[#0f172a] text-[#0f172a] text-[10px] rounded-md px-3 py-2 placeholder:text-[#0f172a]/60 focus:outline-none focus:ring-2 focus:ring-[#8FD0FF]"
           />
 
           <select
@@ -81,7 +81,7 @@ export default function HabilidadesSection({
           <select
             value={form.nivel}
             onChange={(e) => setForm((f) => ({ ...f, nivel: e.target.value }))}
-            className="w-full md:w-1/4 bg-[#cde8ff]/70 border-2 border-[#0f172a] text-[#0f172a] rounded-md px-2 py-2 focus:outline-none focus:ring-2 focus:ring-[#8FD0FF]"
+            className="w-full md:w-1/3 bg-[#cde8ff]/70 border-2 border-[#0f172a] text-[#0f172a] rounded-md px-2 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#8FD0FF]"
           >
             <option value="principiante">Principiante</option>
             <option value="intermedio">Intermedio</option>

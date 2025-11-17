@@ -71,9 +71,6 @@ export default function MeetingPage() {
       }
     }, [meetingId, reserva, meetingStarted]);
 
-  // 3. POLLING PARA ALUMNOS
-  useEffect(() => {
-
     const initializeWebRTC = () => {
       const currentUserId = isInstructor ? reserva.instructor_id : reserva.alumno_id;
       const otherUserId   = isInstructor ? reserva.alumno_id     : reserva.instructor_id;
@@ -88,6 +85,9 @@ export default function MeetingPage() {
         `&current_user_id=${currentUserId}` +
         `&other_user_id=${otherUserId}`;
     }
+  // 3. POLLING PARA ALUMNO
+  useEffect(() => {
+
 
     if (!isInstructor && !meetingStarted && reserva) {
       console.log('🔄 Iniciando polling para alumno...');
