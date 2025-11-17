@@ -4,11 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class AdminController extends Controller
 {
-    // ... (dashboardStats / getUserSessions si ya los tenés)
-
     public function getUsers(Request $r)
     {
         // El middleware 'admin' ya controló permisos.
@@ -29,7 +29,7 @@ class AdminController extends Controller
                 'blocked_until',
                 'blocked_at',
                 'created_at'
-            ) // NO seleccionamos 'is_admin' porque no existe en DB
+            )
             ->when($q, function ($query) use ($q) {
                 $query->where(function ($w) use ($q) {
                     $w->where('name', 'like', "%{$q}%")
@@ -43,7 +43,7 @@ class AdminController extends Controller
 
         // Aseguramos que 'is_admin' (accesor basado en 'rol') aparezca en el JSON
         $users->getCollection()->transform(function ($u) {
-            $u->is_admin = $u->is_admin; // fuerza inclusión del accesor
+            $u->is_admin = $u->is_admin;
             return $u;
         });
 
@@ -67,7 +67,7 @@ class AdminController extends Controller
 
         $user->fill([
             'is_blocked'     => $isBlock,
-            'blocked_reason' => $data['blocked_reason'] ?? null, // usa *blocked_reason* (tu columna)
+            'blocked_reason' => $data['blocked_reason'] ?? null,
             'blocked_until'  => $data['blocked_until']  ?? null,
             'blocked_by'     => $isBlock ? $r->user()->id : null,
             'blocked_at'     => $isBlock ? now() : null,
@@ -80,7 +80,7 @@ class AdminController extends Controller
                 'name'           => $user->name,
                 'email'          => $user->email,
                 'rol'            => $user->rol,
-                'is_admin'       => $user->is_admin,          // accesor basado en 'rol'
+                'is_admin'       => $user->is_admin,
                 'is_blocked'     => (bool)$user->is_blocked,
                 'blocked_reason' => $user->blocked_reason,
                 'blocked_until'  => $user->blocked_until,
@@ -88,5 +88,78 @@ class AdminController extends Controller
                 'blocked_at'     => $user->blocked_at,
             ],
         ]);
+    }
+
+    /**
+     * Historial de sesiones de un usuario (para "Ver historial").
+     * GET /api/admin/users/{id}/sessions
+     */
+    public function getUserSessions(int $id)
+    {
+        // Si todavía no tenés la tabla 'calls', devolvemos vacío y no rompemos.
+        if (!Schema::hasTable('calls')) {
+            return response()->json([]);
+        }
+
+        $hasInstructor = Schema::hasColumn('calls', 'instructor_id');
+        $hasStudent    = Schema::hasColumn('calls', 'student_id');
+        $hasDuration   = Schema::hasColumn('calls', 'duration_seconds');
+        $hasMetrics    = Schema::hasColumn('calls', 'metrics');
+
+        $q = DB::table('calls');
+
+        // Filtrar por el usuario si tenemos columnas para hacerlo
+        if ($hasInstructor || $hasStudent) {
+            $q->where(function ($qq) use ($id, $hasInstructor, $hasStudent) {
+                if ($hasInstructor) {
+                    $qq->orWhere('instructor_id', $id);
+                }
+                if ($hasStudent) {
+                    $qq->orWhere('student_id', $id);
+                }
+            });
+        }
+
+        $sessions = $q->orderByDesc('created_at')->get()->map(function ($row) use (
+            $id,
+            $hasInstructor,
+            $hasStudent,
+            $hasDuration,
+            $hasMetrics
+        ) {
+            // Rol en esa sesión
+            if ($hasInstructor && isset($row->instructor_id)) {
+                $row->role = ($row->instructor_id == $id) ? 'instructor' : 'student';
+            } else {
+                $row->role = 'student';
+            }
+
+            // Duración en minutos (si existe duration_seconds)
+            if ($hasDuration && isset($row->duration_seconds)) {
+                $row->duration_minutes = round(($row->duration_seconds ?? 0) / 60);
+            } else {
+                $row->duration_minutes = 0;
+            }
+
+            // started_at: usamos created_at como fallback
+            if (!isset($row->started_at)) {
+                $row->started_at = $row->created_at ?? null;
+            }
+
+            // Métricas: si hay columna metrics y es JSON, la decodificamos
+            if ($hasMetrics && isset($row->metrics) && is_string($row->metrics)) {
+                $decoded = json_decode($row->metrics, true);
+                $row->metrics = is_array($decoded) ? $decoded : [];
+            }
+
+            // Nombre de habilidad: si no tenés esa info en la tabla, dejamos algo genérico
+            if (!isset($row->skill_name)) {
+                $row->skill_name = 'Sesión de SkillSwap';
+            }
+
+            return $row;
+        });
+
+        return response()->json($sessions);
     }
 }
