@@ -6,12 +6,20 @@ import api from '../utils/axios';
 const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
 
+// normaliza el usuario para que siempre tenga is_admin boolean
+function normalizeUser(u) {
+  if (!u) return null;
+  return {
+    ...u,
+    is_admin: !!(u.is_admin ?? u.isAdmin ?? u.admin), // por si el backend usa otro nombre
+  };
+}
+
 export function AuthProvider({ children }) {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Setter centralizado del token + header de axios
   const setToken = useCallback((t) => {
     if (t) {
       localStorage.setItem('token', t);
@@ -22,7 +30,7 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // Boot: hidrata desde localStorage y trae al usuario actual
+  // Boot
   useEffect(() => {
     const t = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     if (!t) { setLoading(false); return; }
@@ -30,7 +38,6 @@ export function AuthProvider({ children }) {
     setToken(t);
     (async () => {
       try {
-        // Intentá /me y si no existe, /user
         let u = null;
         try {
           const { data } = await api.get('/me');
@@ -39,7 +46,7 @@ export function AuthProvider({ children }) {
           const { data } = await api.get('/user');
           u = data?.user ?? data ?? null;
         }
-        setUser(u);
+        setUser(normalizeUser(u));
       } catch {
         setToken(null);
         setUser(null);
@@ -49,20 +56,20 @@ export function AuthProvider({ children }) {
     })();
   }, [setToken]);
 
-  // login(user, token, { redirect: '/perfil' | true | false })
+  // login(user, token, { redirect })
   const login = useCallback((u, token, opts = {}) => {
     if (token) setToken(token);
-    setUser(u || null);
+    setUser(normalizeUser(u));
 
     const mustRedirect = opts.redirect ?? false;
     const to = typeof mustRedirect === 'string' ? mustRedirect : '/';
     if (mustRedirect) {
       router.replace(to);
-      router.refresh(); // rehidrata header/nav
+      router.refresh();
     }
   }, [router, setToken]);
 
-  // logout({ redirect: '/' })
+  // logout({ redirect })
   const logout = useCallback(async (opts = {}) => {
     try { await api.post('/logout'); } catch {}
     setToken(null);

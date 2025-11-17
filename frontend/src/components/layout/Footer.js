@@ -60,7 +60,7 @@ export default function Footer() {
 
           {/* Línea inferior */}
           <div className="mt-8 border-t-2 border-[#0f172a] pt-4 text-xs text-[#a7c6ec]">
-            © {year} SkillSwap · Hecho con <span aria-hidden>💙</span>
+            © {year} SkillSwap
           </div>
         </div>
       </div>
