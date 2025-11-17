@@ -1,6 +1,11 @@
 {
     "build": {
-      "builder": "heroku/buildpacks:20"
+      "builder": "heroku/buildpacks:20",
+      "buildpacks": [
+        {
+          "url": "heroku/php"
+        }
+      ]
     },
     "deploy": {
       "startCommand": "php artisan serve --host=0.0.0.0 --port=${PORT}",
