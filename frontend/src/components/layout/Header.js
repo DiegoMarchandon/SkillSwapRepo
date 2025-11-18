@@ -15,8 +15,8 @@ export default function Header() {
   ];
 
   const userRightLinks = [
-    { href: '/disponibilidad', label: 'Mi disponibilidad' },
-    { href: '/reservas', label: 'Mis reservas' },
+    { href: '/mi/disponibilidad', label: 'Mi disponibilidad' },
+    { href: '/mi/reservas', label: 'Mis reservas' },
     { href: '/perfil', label: 'Mi perfil' },
   ];
 
