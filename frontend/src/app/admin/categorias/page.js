@@ -18,6 +18,9 @@ export default function AdminCategoriasPage() {
   });
   const [saving, setSaving] = useState(false);
 
+  // 👉 estado para el modal de confirmación de eliminado
+  const [pendingDelete, setPendingDelete] = useState(null);
+
   async function load() {
     setLoading(true);
     try {
@@ -72,11 +75,20 @@ export default function AdminCategoriasPage() {
     }
   }
 
-  async function remove(cat) {
-    if (!confirm(`¿Eliminar "${cat.nombre}"?`)) return;
+  // 👉 abrir modal de confirmación (ya no usamos confirm())
+  function askDelete(cat) {
+    setPendingDelete(cat);
+  }
+
+  // 👉 confirmar borrado desde el modal
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    const cat = pendingDelete;
+
     try {
       await api.delete(`/admin/categorias/${cat.id}`);
-      toast.success("Categoría eliminada");
+      toast.success(`Categoría "${cat.nombre}" eliminada`);
+      setPendingDelete(null);
       await load();
     } catch (err) {
       console.error("Error eliminando categoría", err);
@@ -238,7 +250,10 @@ export default function AdminCategoriasPage() {
                                   ? "bg-slate-500 cursor-not-allowed opacity-60"
                                   : "bg-rose-400 hover:bg-rose-300 hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px]"
                               }`}
-                              onClick={() => remove(cat)}
+                              onClick={() =>
+                                (cat.habilidades_activas_count ?? 0) === 0 &&
+                                askDelete(cat)
+                              }
                               disabled={
                                 (cat.habilidades_activas_count ?? 0) > 0
                               }
@@ -261,6 +276,38 @@ export default function AdminCategoriasPage() {
           </section>
         </div>
       </main>
+
+      {/* MODAL DE CONFIRMACIÓN DE ELIMINADO */}
+      {pendingDelete && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="w-[420px] max-w-full border-2 border-cyan-400 bg-slate-900 text-slate-100 shadow-[0_0_0_3px_rgba(15,23,42,1)] p-5 space-y-4">
+            <h2 className="text-lg tracking-[0.15em] uppercase">
+              Eliminar categoría
+            </h2>
+            <p className="text-sm text-slate-200">
+              ¿Seguro que querés eliminar la categoría{" "}
+              <span className="font-semibold text-rose-300">
+                “{pendingDelete.nombre}”
+              </span>
+              ? Esta acción no se puede deshacer.
+            </p>
+            <div className="flex justify-end gap-2 text-xs">
+              <button
+                onClick={() => setPendingDelete(null)}
+                className="px-3 py-1.5 border-2 border-black bg-slate-700 text-slate-100 shadow-[2px_2px_0_0_rgba(15,23,42,1)] hover:bg-slate-600 hover:translate-x-[1px] hover:translate-y-[1px]"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-3 py-1.5 border-2 border-black bg-rose-500 text-slate-900 shadow-[2px_2px_0_0_rgba(15,23,42,1)] hover:bg-rose-400 hover:translate-x-[1px] hover:translate-y-[1px]"
+              >
+                Sí, eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

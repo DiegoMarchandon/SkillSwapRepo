@@ -1,46 +1,60 @@
 'use client';
+
 import { useEffect, useState, useMemo, Suspense } from 'react';
-import api from '../../../utils/axios';
-import { toLocal } from '../../../utils/time';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { motion } from "framer-motion";
+import { motion } from 'framer-motion';
+import { toast } from 'react-hot-toast';
 
-// Componente que usa useSearchParams - debe estar envuelto en Suspense
+import api from '../../../utils/axios';
+import { toLocal } from '../../../utils/time';
+import Header from '../../../components/layout/Header';
+
+// Contenido principal (usa useSearchParams)
 function MisReservasContent() {
   const search = useSearchParams();
   const ok = search.get('ok') === '1';
-  
+
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
+
   const [ratingModal, setRatingModal] = useState(null);
   const [rating, setRating] = useState(0);
   const [comentario, setComentario] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const [cancelModal, setCancelModal] = useState(null); // reserva a cancelar
 
   async function load() {
     setLoading(true);
     try {
       const { data } = await api.get('/mis-reservas');
       setRows(data.data || []);
-    } catch(error) {
-      console.log("Error en mis reservas", error);
+    } catch (error) {
+      console.log('Error en mis reservas', error);
+      toast.error('No se pudieron cargar tus reservas.');
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => { 
-    load(); 
+  useEffect(() => {
+    load();
   }, []);
 
-  async function cancelar(id) {
-    if (!confirm('¿Seguro que querés cancelar esta reserva?')) return;
+  function abrirCancelarModal(reserva) {
+    setCancelModal(reserva);
+  }
+
+  async function confirmarCancelacion() {
+    if (!cancelModal) return;
     try {
-      await api.patch(`/reservas/${id}/cancelar`);
+      await api.patch(`/reservas/${cancelModal.id}/cancelar`);
+      toast.success('Reserva cancelada.');
+      setCancelModal(null);
       await load();
     } catch (e) {
-      alert(e?.response?.data?.message || 'No se pudo cancelar.');
+      toast.error(e?.response?.data?.message || 'No se pudo cancelar.');
     }
   }
 
@@ -52,7 +66,7 @@ function MisReservasContent() {
 
   async function enviarResena() {
     if (rating === 0) {
-      alert('Por favor, selecciona una calificación');
+      toast.error('Seleccioná una calificación.');
       return;
     }
 
@@ -61,15 +75,15 @@ function MisReservasContent() {
       await api.post('/resenas', {
         reserva_id: ratingModal.id,
         receptor_id: ratingModal.instructor.id,
-        rating: rating,
-        comentario: comentario
+        rating,
+        comentario,
       });
 
-      alert('¡Gracias por tu reseña!');
+      toast.success('¡Gracias por tu reseña!');
       setRatingModal(null);
       await load();
     } catch (e) {
-      alert(e?.response?.data?.message || 'Error al enviar la reseña');
+      toast.error(e?.response?.data?.message || 'Error al enviar la reseña.');
     } finally {
       setSubmitting(false);
     }
@@ -84,16 +98,18 @@ function MisReservasContent() {
         <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-blue-900/30 to-cyan-900/20 backdrop-blur-sm" />
       </div>
 
+      <Header />
+
       <div className="relative z-10 max-w-6xl mx-auto p-6">
         {/* Título principal */}
-        <motion.h1 
+        <motion.h1
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           className="mb-8 text-4xl font-bold text-center text-white font-mono pixel-text"
-          style={{ 
+          style={{
             fontFamily: 'VT323, monospace',
             textShadow: '2px 2px 0 #000, 4px 4px 0 rgba(103, 232, 249, 0.3)',
-            letterSpacing: '2px'
+            letterSpacing: '2px',
           }}
         >
           MIS RESERVAS
@@ -109,8 +125,8 @@ function MisReservasContent() {
             ✓ ¡RESERVA CONFIRMADA!
           </motion.div>
         )}
-        
-        {/* Modal de Rating - ACTUALIZADO con backdrop blur */}
+
+        {/* Modal de Rating */}
         {ratingModal && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
             <motion.div
@@ -119,15 +135,19 @@ function MisReservasContent() {
               className="bg-gray-800 border-4 border-gray-700 rounded-none shadow-2xl max-w-md w-full p-6"
               style={{ boxShadow: '8px 8px 0 #000' }}
             >
-              <h3 className="text-2xl text-white font-bold mb-4 font-mono text-center"
-                  style={{ fontFamily: 'VT323, monospace' }}>
+              <h3
+                className="text-2xl text-white font-bold mb-4 font-mono text-center"
+                style={{ fontFamily: 'VT323, monospace' }}
+              >
                 CALIFICAR SESIÓN
               </h3>
-              <p className="text-gray-300 mb-6 text-center font-mono text-lg"
-                 style={{ fontFamily: 'VT323, monospace' }}>
+              <p
+                className="text-gray-300 mb-6 text-center font-mono text-lg"
+                style={{ fontFamily: 'VT323, monospace' }}
+              >
                 ¿Cómo calificarías tu sesión con {ratingModal.instructor.name}?
               </p>
-              
+
               {/* Estrellas */}
               <div className="flex justify-center mb-6">
                 {[1, 2, 3, 4, 5].map((star) => (
@@ -141,29 +161,29 @@ function MisReservasContent() {
                   </button>
                 ))}
               </div>
-              
+
               {/* Comentario */}
               <textarea
                 value={comentario}
                 onChange={(e) => setComentario(e.target.value)}
                 placeholder="COMENTARIO OPCIONAL..."
                 className="w-full bg-gray-700 text-white border-4 border-gray-600 rounded-none p-4 mb-6 resize-none font-mono text-lg"
-                style={{ 
+                style={{
                   fontFamily: 'VT323, monospace',
-                  boxShadow: '3px 3px 0 #000'
+                  boxShadow: '3px 3px 0 #000',
                 }}
                 rows="3"
               />
-              
+
               {/* Botones */}
               <div className="flex gap-4">
                 <button
                   onClick={() => setRatingModal(null)}
                   disabled={submitting}
                   className="flex-1 px-4 py-3 bg-gray-600 text-white border-4 border-gray-700 rounded-none hover:bg-gray-500 transition font-mono text-lg font-bold disabled:opacity-50"
-                  style={{ 
+                  style={{
                     boxShadow: '4px 4px 0 #000',
-                    fontFamily: 'VT323, monospace'
+                    fontFamily: 'VT323, monospace',
                   }}
                 >
                   CANCELAR
@@ -172,9 +192,9 @@ function MisReservasContent() {
                   onClick={enviarResena}
                   disabled={submitting || rating === 0}
                   className="flex-1 px-4 py-3 bg-cyan-500 text-gray-900 border-4 border-cyan-700 rounded-none hover:bg-cyan-400 transition font-mono text-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ 
+                  style={{
                     boxShadow: '4px 4px 0 #000',
-                    fontFamily: 'VT323, monospace'
+                    fontFamily: 'VT323, monospace',
                   }}
                 >
                   {submitting ? 'ENVIANDO...' : 'ENVIAR'}
@@ -184,25 +204,95 @@ function MisReservasContent() {
           </div>
         )}
 
-        {/* Tabla de reservas - COMPLETAMENTE REDISEÑADA */}
-        <div className="bg-gray-800 border-4 border-gray-700 rounded-none backdrop-blur-sm bg-opacity-90 overflow-hidden"
-             style={{ boxShadow: '8px 8px 0 #000' }}>
+        {/* Modal de confirmación de cancelación */}
+        {cancelModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-gray-800 border-4 border-red-700 rounded-none shadow-2xl max-w-md w-full p-6"
+              style={{ boxShadow: '8px 8px 0 #000' }}
+            >
+              <h3
+                className="text-2xl text-red-300 font-bold mb-4 font-mono text-center"
+                style={{ fontFamily: 'VT323, monospace' }}
+              >
+                CANCELAR RESERVA
+              </h3>
+              <p
+                className="text-gray-200 mb-6 text-center font-mono text-lg"
+                style={{ fontFamily: 'VT323, monospace' }}
+              >
+                ¿Seguro que querés cancelar tu reserva con{' '}
+                <span className="text-cyan-300">
+                  {cancelModal.instructor.name}
+                </span>{' '}
+                el{' '}
+                {toLocal(cancelModal.inicio_utc, 'EEE d MMM HH:mm')}?
+              </p>
+
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setCancelModal(null)}
+                  className="flex-1 px-4 py-3 bg-gray-600 text-white border-4 border-gray-700 rounded-none hover:bg-gray-500 transition font-mono text-lg font-bold"
+                  style={{
+                    boxShadow: '4px 4px 0 #000',
+                    fontFamily: 'VT323, monospace',
+                  }}
+                >
+                  VOLVER
+                </button>
+                <button
+                  onClick={confirmarCancelacion}
+                  className="flex-1 px-4 py-3 bg-red-500 text-white border-4 border-red-700 rounded-none hover:bg-red-400 transition font-mono text-lg font-bold"
+                  style={{
+                    boxShadow: '4px 4px 0 #000',
+                    fontFamily: 'VT323, monospace',
+                  }}
+                >
+                  CONFIRMAR
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Tabla de reservas */}
+        <div
+          className="bg-gray-800 border-4 border-gray-700 rounded-none backdrop-blur-sm bg-opacity-90 overflow-hidden"
+          style={{ boxShadow: '8px 8px 0 #000' }}
+        >
           <div className="overflow-x-auto">
-            <table className="min-w-full font-mono text-lg"
-                   style={{ fontFamily: 'VT323, monospace' }}>
+            <table
+              className="min-w-full font-mono text-lg"
+              style={{ fontFamily: 'VT323, monospace' }}
+            >
               <thead className="bg-gray-900/80 text-white">
                 <tr>
-                  <th className="px-6 py-4 border-b-4 border-gray-700 text-left">INSTRUCTOR</th>
-                  <th className="px-6 py-4 border-b-4 border-gray-700 text-left">HORARIO</th>
-                  <th className="px-6 py-4 border-b-4 border-gray-700 text-left">ESTADO</th>
-                  <th className="px-6 py-4 border-b-4 border-gray-700 text-left">REUNIÓN</th>
-                  <th className="px-6 py-4 border-b-4 border-gray-700 text-right">ACCIONES</th>
+                  <th className="px-6 py-4 border-b-4 border-gray-700 text-left">
+                    INSTRUCTOR
+                  </th>
+                  <th className="px-6 py-4 border-b-4 border-gray-700 text-left">
+                    HORARIO
+                  </th>
+                  <th className="px-6 py-4 border-b-4 border-gray-700 text-left">
+                    ESTADO
+                  </th>
+                  <th className="px-6 py-4 border-b-4 border-gray-700 text-left">
+                    REUNIÓN
+                  </th>
+                  <th className="px-6 py-4 border-b-4 border-gray-700 text-right">
+                    ACCIONES
+                  </th>
                 </tr>
               </thead>
               <tbody className="text-white">
                 {loading && (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-400 font-mono text-xl">
+                    <td
+                      colSpan={5}
+                      className="px-6 py-8 text-center text-gray-400 font-mono text-xl"
+                    >
                       CARGANDO…
                     </td>
                   </tr>
@@ -210,80 +300,112 @@ function MisReservasContent() {
 
                 {!loading && rows.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-400 font-mono text-xl">
+                    <td
+                      colSpan={5}
+                      className="px-6 py-8 text-center text-gray-400 font-mono text-xl"
+                    >
                       NO TENÉS RESERVAS AÚN.
                     </td>
                   </tr>
                 )}
 
-                {!loading && rows.map(r => {
-                  const empieza = new Date(r.inicio_utc);
-                  const puedeCancelar = ['confirmada','pendiente'].includes(r.estado) && now < empieza;
-                  const tieneResena = r.resena_existente;
+                {!loading &&
+                  rows.map((r) => {
+                    const empieza = new Date(r.inicio_utc);
+                    const puedeCancelar =
+                      ['confirmada', 'pendiente'].includes(r.estado) &&
+                      now < empieza;
+                    const tieneResena = r.resena_existente;
 
-                  return (
-                    <tr key={r.id} className="border-b-4 border-gray-700 hover:bg-gray-700/50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="font-bold text-cyan-300">{r.instructor.name}</div>
-                        <div className="text-gray-400 text-sm">{r.instructor.email}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="font-bold">{toLocal(r.inicio_utc, 'EEE d MMM HH:mm')}</div>
-                        <div className="text-gray-400">– {toLocal(r.fin_utc, 'HH:mm')}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-4 py-2 rounded-none border-2 font-bold text-sm
-                          ${r.estado === 'confirmada' ? 'bg-green-900/50 border-green-500 text-green-300' :
-                            r.estado === 'cancelada' ? 'bg-gray-600 border-gray-400 text-gray-300' :
-                            r.estado === 'finalizada' ? 'bg-purple-900/50 border-purple-500 text-purple-300' :
-                            'bg-cyan-900/50 border-cyan-500 text-cyan-300'}`}
-                          style={{ boxShadow: '2px 2px 0 #000' }}>
-                          {r.estado.toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        {r.estado === 'confirmada' && r.meeting_id && (
-                          <Link 
-                            href={`/meeting/${r.meeting_id}`}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 text-white border-2 border-blue-700 rounded-none hover:bg-blue-400 transition font-bold"
-                            style={{ boxShadow: '3px 3px 0 #000' }}
-                          >
-                            🎥 UNIRSE
-                          </Link>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        {r.estado !== 'finalizada' ? (
-                          <button
-                            disabled={!puedeCancelar}
-                            onClick={() => cancelar(r.id)}
-                            className={`px-4 py-2 rounded-none border-2 font-bold transition
-                              ${puedeCancelar
-                                ? 'bg-red-500 text-white border-red-700 hover:bg-red-400'
-                                : 'bg-gray-600 text-gray-400 border-gray-700 cursor-not-allowed'}`}
-                            style={{ boxShadow: puedeCancelar ? '3px 3px 0 #000' : 'none' }}
-                          >
-                            CANCELAR
-                          </button>
-                        ) : (
-                          <div>
-                            {tieneResena ? (
-                              <span className="text-green-400 font-bold text-lg">✓ CALIFICADA</span>
-                            ) : (
-                              <button
-                                onClick={() => abrirRatingModal(r)}
-                                className="px-4 py-2 bg-yellow-500 text-gray-900 border-2 border-yellow-700 rounded-none hover:bg-yellow-400 transition font-bold"
-                                style={{ boxShadow: '3px 3px 0 #000' }}
-                              >
-                                ⭐ CALIFICAR
-                              </button>
-                            )}
+                    return (
+                      <tr
+                        key={r.id}
+                        className="border-b-4 border-gray-700 hover:bg-gray-700/50 transition-colors"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="font-bold text-cyan-300">
+                            {r.instructor.name}
                           </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                          <div className="text-gray-400 text-sm">
+                            {r.instructor.email}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="font-bold">
+                            {toLocal(r.inicio_utc, 'EEE d MMM HH:mm')}
+                          </div>
+                          <div className="text-gray-400">
+                            – {toLocal(r.fin_utc, 'HH:mm')}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`px-4 py-2 rounded-none border-2 font-bold text-sm
+                          ${
+                            r.estado === 'confirmada'
+                              ? 'bg-green-900/50 border-green-500 text-green-300'
+                              : r.estado === 'cancelada'
+                              ? 'bg-gray-600 border-gray-400 text-gray-300'
+                              : r.estado === 'finalizada'
+                              ? 'bg-purple-900/50 border-purple-500 text-purple-300'
+                              : 'bg-cyan-900/50 border-cyan-500 text-cyan-300'
+                          }`}
+                            style={{ boxShadow: '2px 2px 0 #000' }}
+                          >
+                            {r.estado.toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          {r.estado === 'confirmada' && r.meeting_id && (
+                            <Link
+                              href={`/meeting/${r.meeting_id}`}
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 text-white border-2 border-blue-700 rounded-none hover:bg-blue-400 transition font-bold"
+                              style={{ boxShadow: '3px 3px 0 #000' }}
+                            >
+                              🎥 UNIRSE
+                            </Link>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          {r.estado !== 'finalizada' ? (
+                            <button
+                              disabled={!puedeCancelar}
+                              onClick={() => abrirCancelarModal(r)}
+                              className={`px-4 py-2 rounded-none border-2 font-bold transition
+                              ${
+                                puedeCancelar
+                                  ? 'bg-red-500 text-white border-red-700 hover:bg-red-400'
+                                  : 'bg-gray-600 text-gray-400 border-gray-700 cursor-not-allowed'
+                              }`}
+                              style={{
+                                boxShadow: puedeCancelar
+                                  ? '3px 3px 0 #000'
+                                  : 'none',
+                              }}
+                            >
+                              CANCELAR
+                            </button>
+                          ) : (
+                            <div>
+                              {tieneResena ? (
+                                <span className="text-green-400 font-bold text-lg">
+                                  ✓ CALIFICADA
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => abrirRatingModal(r)}
+                                  className="px-4 py-2 bg-yellow-500 text-gray-900 border-2 border-yellow-700 rounded-none hover:bg-yellow-400 transition font-bold"
+                                  style={{ boxShadow: '3px 3px 0 #000' }}
+                                >
+                                  ⭐ CALIFICAR
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
@@ -293,19 +415,27 @@ function MisReservasContent() {
   );
 }
 
-// Componente principal - ACTUALIZADO
+// wrapper con Suspense
 export default function MisReservasPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-white font-mono text-2xl mb-4" style={{ fontFamily: 'VT323, monospace' }}>
-            CARGANDO RESERVAS...
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+          <div className="fixed inset-0 -z-10">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-blue-900/30 to-cyan-900/20 backdrop-blur-sm" />
           </div>
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500 mx-auto"></div>
+          <div className="relative z-10 text-center">
+            <div
+              className="text-white font-mono text-2xl mb-4"
+              style={{ fontFamily: 'VT323, monospace' }}
+            >
+              CARGANDO RESERVAS...
+            </div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500 mx-auto" />
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <MisReservasContent />
     </Suspense>
   );
