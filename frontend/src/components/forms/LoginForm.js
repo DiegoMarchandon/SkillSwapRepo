@@ -140,7 +140,7 @@ const LoginForm = ({
           <p className="text-xs text-[#a7c6ec]">
             ¿No tenés cuenta?{' '}
             <a
-              href={`/auth/register?next=${encodeURIComponent(next)}`}
+              href={`/register?next=${encodeURIComponent(next)}`}
               className="underline underline-offset-4 text-[#67e8f9]"
             >
               Registrate
