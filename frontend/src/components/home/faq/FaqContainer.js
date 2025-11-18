@@ -61,7 +61,7 @@ export default function FaqContainer() {
 
     return (
       <div>
-        <section className="bg-[#0a0a0a] min-h-screen py-20 px-6">
+        <section className="min-h-screen py-20 px-6">
           <div style={{fontFamily: 'VT323'}} className="max-w-4xl mx-auto text-center mb-12">
             <motion.h2
               initial={{ opacity: 0, y: -30 }}
