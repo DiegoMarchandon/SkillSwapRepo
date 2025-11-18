@@ -22,7 +22,7 @@ export default function Header() {
 
   const adminLinks = [
     { href: '/dashboard', label: 'Historial usuarios' },
-    { href: '/admin/categorias', label: 'Categorías' },
+    { href: '/admin/categorias', label: 'Categorias' },
     { href: '/admin/usuarios', label: 'Bloquear perfil' },
   ];
 

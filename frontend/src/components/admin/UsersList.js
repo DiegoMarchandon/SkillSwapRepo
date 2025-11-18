@@ -1,10 +1,10 @@
 'use client';
 
-// Lista de usuarios con estilo dark/pixel
+
 export default function UsersList({ users = [], onViewSessions, setSelectedUser }) {
   const handleViewSessions = (u) => {
     // Debug para confirmar el click
-    console.log('Ver historial de usuario', u.id);
+    //console.log('Ver historial de usuario', u.id);
     if (setSelectedUser) setSelectedUser(u);
     if (onViewSessions) onViewSessions(u.id);
   };
