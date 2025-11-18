@@ -86,12 +86,12 @@ class ProfesoresController extends Controller
             // Obtener todos los usuarios que ofrecen habilidades
             $teachers = User::with(['habilidades' => function($query) {
                     $query->where('tipo', 'ofrecida')
-                          ->where('estado', 'activa')
+                          ->where('estado', 1)
                           ->with('habilidad');
                 }])
                 ->whereHas('habilidades', function($query) {
                     $query->where('tipo', 'ofrecida')
-                          ->where('estado', 'activa');
+                          ->where('estado', 1);
                 })
                 ->get()
                 ->where('id', '!=', Auth::id()) //para excluir al usuario actual

@@ -12,7 +12,7 @@ const tabs = [
 export default function Subnavbar({actualTab}) {
   const pathname = usePathname();
   return (
-    <div className="absolute fixed top-22 z-40 mx-auto w-full backdrop-blur-md bg-white/20 border border-white/30  shadow-lg">
+    <div className="relative sticky top-15 z-40 mx-auto w-full backdrop-blur-md bg-white/20 border border-white/30  shadow-lg">
         <p className="perfil-title relative text-xl top-5 select-none font-semibold">
             Perfil &nbsp; &nbsp; 
             <span className="vertical-line">|</span>
