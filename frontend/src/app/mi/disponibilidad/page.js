@@ -41,21 +41,36 @@ export default function CargarDisponibilidadPage() {
         const { data } = await api.get('/my-skills');
         const list = Array.isArray(data?.data)
           ? data.data
-          : (Array.isArray(data) ? data : []);
+          : Array.isArray(data)
+          ? data
+          : [];
 
         const opciones = list.map((it) => {
           const h =
-            it.habilidad?.id ? it.habilidad :
-            it.skill?.id     ? it.skill :
-            it.habilidad_id  ? { id: it.habilidad_id, nombre: it.habilidad_nombre || it.nombre || it.name } :
-                               { id: it.id, nombre: it.nombre || it.name };
-          return { id: Number(h.id), nombre: h.nombre || h.name || `Habilidad #${h.id}` };
+            it.habilidad?.id
+              ? it.habilidad
+              : it.skill?.id
+              ? it.skill
+              : it.habilidad_id
+              ? {
+                  id: it.habilidad_id,
+                  nombre: it.habilidad_nombre || it.nombre || it.name,
+                }
+              : { id: it.id, nombre: it.nombre || it.name };
+          return {
+            id: Number(h.id),
+            nombre: h.nombre || h.name || `Habilidad #${h.id}`,
+          };
         });
 
         setHabilidades(opciones);
         setScreenMsg(null);
       } catch (e) {
-        console.log('No pude cargar mis habilidades', e?.response?.status, e?.response?.data);
+        console.log(
+          'No pude cargar mis habilidades',
+          e?.response?.status,
+          e?.response?.data
+        );
         setScreenMsg(null);
         toast.error('No se pudieron cargar tus habilidades. Intentalo de nuevo.');
       }
@@ -72,18 +87,24 @@ export default function CargarDisponibilidadPage() {
       return;
     }
 
-    const [HH, MM] = hora.split(':').map(Number);
-    const localStart = new Date(fecha);
-    localStart.setHours(HH, MM ?? 0, 0, 0);
+    // ✅ construir la fecha/hora local sin el bug de "YYYY-MM-DD" en UTC
+    const [year, month, day] = fecha.split('-').map(Number); // p.ej. 2025-11-25
+    const [HH, MM] = hora.split(':').map(Number);            // p.ej. 20:00
 
-    const inicioUtc = fromZonedTime(localStart, ZONE);
-    const finUtc = new Date(inicioUtc.getTime() + Number(duracion) * 60000);
+    // Esto crea un Date en hora local (zona del sistema, Argentina)
+    const localStart = new Date(year, month - 1, day, HH, MM ?? 0, 0, 0);
+
+    // Interpretamos ese horario en la zona ZONE y lo convertimos a UTC
+    const inicioUtcDate = fromZonedTime(localStart, ZONE);
+    const finUtcDate = new Date(
+      inicioUtcDate.getTime() + Number(duracion) * 60000
+    );
 
     setSlots((prev) => [
       ...prev,
       {
-        inicio_utc: inicioUtc.toISOString(),
-        fin_utc: finUtc.toISOString(),
+        inicio_utc: inicioUtcDate.toISOString(),
+        fin_utc: finUtcDate.toISOString(),
       },
     ]);
 
@@ -325,14 +346,18 @@ export default function CargarDisponibilidadPage() {
                   {slots.map((s, i) => (
                     <li
                       key={i}
-                      className="flex items-center justify-between gap-2 px-3 py-2 border-2 border-gray-700 bg-gray-800 text-gray-100 text-sm"
+                      className="flex items-center justify_between gap-2 px-3 py-2 border-2 border-gray-700 bg-gray-800 text-gray-100 text-sm"
                       style={{ fontFamily: 'VT323, monospace', boxShadow: '3px 3px 0 #000' }}
                     >
                       <div className="flex-1">
                         <div>{formatLocal(s.inicio_utc)}</div>
                         <div className="text-gray-400 text-xs">
-                          → {new Date(s.fin_utc).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
-                          {' '} (UTC convertido)
+                          →{' '}
+                          {new Date(s.fin_utc).toLocaleTimeString('es-AR', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}{' '}
+                          (UTC convertido)
                         </div>
                       </div>
                       <button
