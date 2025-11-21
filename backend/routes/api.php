@@ -28,6 +28,7 @@ use App\Http\Controllers\Admin\UserBlockController;
 
 // Público
 use App\Http\Controllers\Publico\CategoriaPublicController;
+use App\Http\Controllers\ContactController;
 
 /*
 |--------------------------------------------------------------------------
@@ -53,6 +54,9 @@ Route::get('/habilidades', BuscarHabilidadesController::class);
 
 // Categorías públicas (activas)
 Route::get('/categorias', [CategoriaPublicController::class, 'index']);
+
+// Contacto
+Route::post('/contact', [ContactController::class, 'store']);
 
 /*
 |--------------------------------------------------------------------------
