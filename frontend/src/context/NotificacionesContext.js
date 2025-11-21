@@ -1,6 +1,13 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+} from 'react';
 import api from '../utils/axios';
 import { useAuth } from './AuthContext';
 
@@ -10,12 +17,18 @@ export function useNotifications() {
   return useContext(Ctx);
 }
 
-export default function NotificationsProvider({ children }) {
+// 👇 ESTE es el componente Provider
+function NotificationsProvider({ children }) {
   const { user } = useAuth();
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState([]);
   const sinceRef = useRef(null);
   const timer = useRef(null);
+
+  const hasToken = useCallback(
+    () => typeof window !== 'undefined' && !!localStorage.getItem('token'),
+    []
+  );
 
   const stopPolling = useCallback(() => {
     if (timer.current) {
@@ -24,17 +37,17 @@ export default function NotificationsProvider({ children }) {
     }
   }, []);
 
-  const hasToken = useCallback(
-    () => typeof window !== 'undefined' && !!localStorage.getItem('token'),
-    []
-  );
-
   const refreshCount = useCallback(async () => {
     if (!user || !hasToken()) return;
     try {
       const { data } = await api.get('/notificaciones/unread');
       setUnread(data?.count ?? 0);
     } catch (err) {
+      console.error(
+        'Error obteniendo unread',
+        err?.response?.status,
+        err?.response?.data
+      );
       if (err?.response?.status === 401) stopPolling();
     }
   }, [user, hasToken, stopPolling]);
@@ -42,7 +55,9 @@ export default function NotificationsProvider({ children }) {
   const fetchLatest = useCallback(async () => {
     if (!user || !hasToken()) return;
     try {
-      const qs = sinceRef.current ? `?since=${encodeURIComponent(sinceRef.current)}` : '';
+      const qs = sinceRef.current
+        ? `?since=${encodeURIComponent(sinceRef.current)}`
+        : '';
       const { data } = await api.get('/notificaciones/latest' + qs);
       if (Array.isArray(data) && data.length) {
         setItems((prev) => [...data.reverse(), ...prev].slice(0, 50));
@@ -50,6 +65,11 @@ export default function NotificationsProvider({ children }) {
         refreshCount();
       }
     } catch (err) {
+      console.error(
+        'Error obteniendo notificaciones',
+        err?.response?.status,
+        err?.response?.data
+      );
       if (err?.response?.status === 401) stopPolling();
     }
   }, [user, hasToken, refreshCount, stopPolling]);
@@ -79,8 +99,27 @@ export default function NotificationsProvider({ children }) {
     if (!user || !hasToken()) return;
     try {
       await api.post('/notificaciones/read-all');
+
+      const now = new Date().toISOString();
+      setItems((prev) =>
+        prev.map((n) => ({
+          ...n,
+          read_at: n.read_at ?? now,
+          leida: true,
+        }))
+      );
+
       setUnread(0);
-    } catch (_) {}
+      sinceRef.current = new Date().toISOString();
+    } catch (err) {
+      console.error(
+        'Error marcando todas como leídas',
+        err?.response?.status,
+        err?.response?.data
+      );
+      // al menos limpiamos el badge en esta sesión
+      setUnread(0);
+    }
   }, [user, hasToken]);
 
   return (
@@ -89,3 +128,6 @@ export default function NotificationsProvider({ children }) {
     </Ctx.Provider>
   );
 }
+
+// 👇 export default, para usar <NotificationsProvider> tal cual
+export default NotificationsProvider;

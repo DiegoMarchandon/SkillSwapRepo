@@ -6,6 +6,7 @@ import Link from 'next/link';
 export default function NotifsPage() {
   const notifs = useNotifications();
   const items = notifs?.items ?? [];
+  const unread = notifs?.unread ?? 0;
   const markAllRead = notifs?.markAllRead ?? (() => {});
 
   return (
@@ -33,7 +34,7 @@ export default function NotifsPage() {
 
           <button
             onClick={markAllRead}
-            disabled={items.length === 0}
+            disabled={unread === 0}  
             className="
               font-pixel
               border-2 border-[#0f172a] bg-[#cde8ff] text-[#0b0c10]
