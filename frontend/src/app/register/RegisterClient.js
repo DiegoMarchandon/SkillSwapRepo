@@ -39,21 +39,22 @@ export default function RegisterClient({ next = '/perfil' }) {
         avatar: avatarBase64,
       });
 
-      // 3) Guardar token + user, hidratar axios y contexto
       const { user, token } = res.data;
-      localStorage.setItem('token', token);
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      login(user);
 
-      // 4) Volver donde estaba y refrescar layout (Header)
-      router.replace(`${next}?ok=registro`);
-      router.refresh();
+      // 3) Dejar que AuthContext maneje token, user, toast y redirect
+      login(user, token, {
+        redirect: `${next}?ok=registro`,
+        message: '¡Tu cuenta fue creada con éxito! Bienvenido/a a SkillSwap 🚀',
+        // showWelcome: true // opcional, es el default
+      });
     } catch (err) {
       if (err?.response?.status === 422) {
         const apiErrors = err.response.data.errors || {};
         const formatted = {};
         Object.keys(apiErrors).forEach((k) => {
-          formatted[k] = Array.isArray(apiErrors[k]) ? apiErrors[k][0] : String(apiErrors[k]);
+          formatted[k] = Array.isArray(apiErrors[k])
+            ? apiErrors[k][0]
+            : String(apiErrors[k]);
         });
         setError(formatted);
       } else {
@@ -101,11 +102,16 @@ export default function RegisterClient({ next = '/perfil' }) {
             </div>
 
             <RegisterForm
-              name={name} setName={setName}
-              email={email} setEmail={setEmail}
-              password={password} setPassword={setPassword}
-              passwordConfirm={passwordConfirm} setPasswordConfirm={setPasswordConfirm}
-              error={error} setError={setError}
+              name={name}
+              setName={setName}
+              email={email}
+              setEmail={setEmail}
+              password={password}
+              setPassword={setPassword}
+              passwordConfirm={passwordConfirm}
+              setPasswordConfirm={setPasswordConfirm}
+              error={error}
+              setError={setError}
               handleSubmit={handleSubmit}
             />
           </div>

@@ -17,7 +17,6 @@ export function useNotifications() {
   return useContext(Ctx);
 }
 
-// 👇 ESTE es el componente Provider
 function NotificationsProvider({ children }) {
   const { user } = useAuth();
   const [unread, setUnread] = useState(0);
@@ -59,8 +58,11 @@ function NotificationsProvider({ children }) {
         ? `?since=${encodeURIComponent(sinceRef.current)}`
         : '';
       const { data } = await api.get('/notificaciones/latest' + qs);
+
       if (Array.isArray(data) && data.length) {
+        // agregamos nuevas al principio, manteniendo como máximo 50
         setItems((prev) => [...data.reverse(), ...prev].slice(0, 50));
+        // ahora sí: movemos el cursor a "ahora"
         sinceRef.current = new Date().toISOString();
         refreshCount();
       }
@@ -75,9 +77,13 @@ function NotificationsProvider({ children }) {
   }, [user, hasToken, refreshCount, stopPolling]);
 
   const startPolling = useCallback(() => {
-    sinceRef.current = new Date().toISOString();
+    // 👇 IMPORTANTE: no adelantar el "since"
+    // Primer fetch debe traer las últimas 20 sin filtro de fecha
+    sinceRef.current = null;
+
     refreshCount();
     fetchLatest();
+
     stopPolling(); // por las dudas
     timer.current = setInterval(fetchLatest, 10000);
   }, [refreshCount, fetchLatest, stopPolling]);
@@ -117,7 +123,6 @@ function NotificationsProvider({ children }) {
         err?.response?.status,
         err?.response?.data
       );
-      // al menos limpiamos el badge en esta sesión
       setUnread(0);
     }
   }, [user, hasToken]);
@@ -129,5 +134,4 @@ function NotificationsProvider({ children }) {
   );
 }
 
-// 👇 export default, para usar <NotificationsProvider> tal cual
 export default NotificationsProvider;

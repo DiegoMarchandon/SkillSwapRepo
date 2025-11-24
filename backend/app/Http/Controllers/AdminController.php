@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Carbon\Carbon;
 
 class AdminController extends Controller
 {
@@ -94,65 +95,50 @@ class AdminController extends Controller
      * Historial de sesiones de un usuario (para "Ver historial").
      * GET /api/admin/users/{id}/sessions
      */
-    public function getUserSessions(int $id)
+    public function getUserSessions(Request $r, int $id)
     {
-        // Si todavía no tenés la tabla 'calls', devolvemos vacío y no rompemos.
         if (!Schema::hasTable('calls')) {
             return response()->json([]);
         }
 
-        $hasInstructor = Schema::hasColumn('calls', 'instructor_id');
-        $hasStudent    = Schema::hasColumn('calls', 'student_id');
-        $hasDuration   = Schema::hasColumn('calls', 'duration_seconds');
-        $hasMetrics    = Schema::hasColumn('calls', 'metrics');
+        // Traemos solo las llamadas donde el usuario participó
+        $q = DB::table('calls')
+            ->where(function ($qq) use ($id) {
+                $qq->where('caller_id', $id)
+                    ->orWhere('receiver_id', $id);
+            })
+            // si tenés started_at, mejor ordenar por ahí
+            ->orderByDesc('started_at')
+            ->orderByDesc('created_at');
 
-        $q = DB::table('calls');
-
-        // Filtrar por el usuario si tenemos columnas para hacerlo
-        if ($hasInstructor || $hasStudent) {
-            $q->where(function ($qq) use ($id, $hasInstructor, $hasStudent) {
-                if ($hasInstructor) {
-                    $qq->orWhere('instructor_id', $id);
-                }
-                if ($hasStudent) {
-                    $qq->orWhere('student_id', $id);
-                }
-            });
-        }
-
-        $sessions = $q->orderByDesc('created_at')->get()->map(function ($row) use (
-            $id,
-            $hasInstructor,
-            $hasStudent,
-            $hasDuration,
-            $hasMetrics
-        ) {
-            // Rol en esa sesión
-            if ($hasInstructor && isset($row->instructor_id)) {
-                $row->role = ($row->instructor_id == $id) ? 'instructor' : 'student';
+        $sessions = $q->get()->map(function ($row) use ($id) {
+            // Rol relativo en esa llamada
+            if (isset($row->caller_id) && $row->caller_id == $id) {
+                $row->role = 'caller';   // o 'instructor' si querés
+            } elseif (isset($row->receiver_id) && $row->receiver_id == $id) {
+                $row->role = 'receiver'; // o 'student'
             } else {
-                $row->role = 'student';
+                $row->role = 'participant';
             }
 
-            // Duración en minutos (si existe duration_seconds)
-            if ($hasDuration && isset($row->duration_seconds)) {
-                $row->duration_minutes = round(($row->duration_seconds ?? 0) / 60);
-            } else {
-                $row->duration_minutes = 0;
+            // Fallback de started_at
+            if (empty($row->started_at) && !empty($row->created_at)) {
+                $row->started_at = $row->created_at;
             }
 
-            // started_at: usamos created_at como fallback
-            if (!isset($row->started_at)) {
-                $row->started_at = $row->created_at ?? null;
+            // Duración en minutos usando started_at / ended_at
+            $row->duration_minutes = 0;
+
+            if (!empty($row->started_at) && !empty($row->ended_at)) {
+                $start = Carbon::parse($row->started_at);
+                $end   = Carbon::parse($row->ended_at);
+
+                $mins = $start->diffInMinutes($end);
+                // si querés evitar que una sesión de 40s salga como 0:
+                $row->duration_minutes = max(1, $mins);
             }
 
-            // Métricas: si hay columna metrics y es JSON, la decodificamos
-            if ($hasMetrics && isset($row->metrics) && is_string($row->metrics)) {
-                $decoded = json_decode($row->metrics, true);
-                $row->metrics = is_array($decoded) ? $decoded : [];
-            }
-
-            // Nombre de habilidad: si no tenés esa info en la tabla, dejamos algo genérico
+            // Nombre genérico si no tenés aún skill_name
             if (!isset($row->skill_name)) {
                 $row->skill_name = 'Sesión de SkillSwap';
             }

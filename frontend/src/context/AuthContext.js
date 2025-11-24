@@ -1,7 +1,9 @@
 'use client';
+
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '../utils/axios';
+import { toast } from 'react-hot-toast'; // 👈 ajustá este import si usás otra lib
 
 const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
@@ -33,7 +35,10 @@ export function AuthProvider({ children }) {
   // Boot
   useEffect(() => {
     const t = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (!t) { setLoading(false); return; }
+    if (!t) {
+      setLoading(false);
+      return;
+    }
 
     setToken(t);
     (async () => {
@@ -56,29 +61,72 @@ export function AuthProvider({ children }) {
     })();
   }, [setToken]);
 
-  // login(user, token, { redirect })
-  const login = useCallback((u, token, opts = {}) => {
-    if (token) setToken(token);
-    setUser(normalizeUser(u));
+  /**
+   * login(user, token, { redirect, message, showWelcome })
+   * También soporta:
+   *   login(user)
+   *   login(user, { redirect, ...opts })
+   */
+  const login = useCallback(
+    (u, tokenOrOpts, maybeOpts) => {
+      let token = null;
+      let opts = {};
 
-    const mustRedirect = opts.redirect ?? false;
-    const to = typeof mustRedirect === 'string' ? mustRedirect : '/';
-    if (mustRedirect) {
-      router.replace(to);
-      router.refresh();
-    }
-  }, [router, setToken]);
+      // Soportar tanto login(user, token, opts) como login(user, opts)
+      if (typeof tokenOrOpts === 'string' || tokenOrOpts == null) {
+        token = tokenOrOpts ?? null;
+        opts = maybeOpts ?? {};
+      } else {
+        token = null;
+        opts = tokenOrOpts ?? {};
+      }
+
+      if (token) setToken(token);
+
+      const normalized = normalizeUser(u);
+      setUser(normalized);
+
+      // 🔔 Toast de bienvenida (se puede apagar con showWelcome: false)
+      const nombre =
+        normalized?.name ||
+        normalized?.nombre ||
+        normalized?.email ||
+        '';
+
+      if (opts.showWelcome !== false) {
+        toast.success(
+          opts.message ?? `¡Bienvenido/a ${nombre || 'a SkillSwap'}!`
+        );
+      }
+
+      const mustRedirect = opts.redirect ?? false;
+      const to = typeof mustRedirect === 'string' ? mustRedirect : '/';
+
+      if (mustRedirect) {
+        router.replace(to);
+        router.refresh();
+      }
+    },
+    [router, setToken]
+  );
 
   // logout({ redirect })
-  const logout = useCallback(async (opts = {}) => {
-    try { await api.post('/logout'); } catch {}
-    setToken(null);
-    setUser(null);
+  const logout = useCallback(
+    async (opts = {}) => {
+      try {
+        await api.post('/logout');
+      } catch {
+        // ignoramos error de logout, igual limpiamos
+      }
+      setToken(null);
+      setUser(null);
 
-    const to = typeof opts.redirect === 'string' ? opts.redirect : '/';
-    router.replace(to);
-    router.refresh();
-  }, [router, setToken]);
+      const to = typeof opts.redirect === 'string' ? opts.redirect : '/';
+      router.replace(to);
+      router.refresh();
+    },
+    [router, setToken]
+  );
 
   return (
     <AuthContext.Provider value={{ user, loading, setUser, login, logout }}>
