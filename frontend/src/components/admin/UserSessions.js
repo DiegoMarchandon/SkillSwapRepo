@@ -16,11 +16,14 @@ export default function UserSessions({ user, sessions, loading }) {
     );
   }
 
-  const totalSesiones   = sessions.length;
-  const comoInstructor  = sessions.filter((s) => s.role === 'instructor').length;
-  const comoEstudiante  = sessions.filter((s) => s.role === 'student').length;
-  const totalMinutos    = Math.round(
-    sessions.reduce((acc, s) => acc + (s.duration_minutes || 0), 0),
+  // 👇 solo consideramos las sesiones realmente finalizadas
+  const completed = sessions.filter((s) => s.status === 'completed');
+
+  const totalSesiones  = completed.length;
+  const comoInstructor = completed.filter((s) => s.role === 'instructor').length;
+  const comoEstudiante = completed.filter((s) => s.role === 'student').length;
+  const totalMinutos   = Math.round(
+    completed.reduce((acc, s) => acc + (s.duration_minutes || 0), 0),
   );
 
   return (
@@ -103,14 +106,14 @@ export default function UserSessions({ user, sessions, loading }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
-              {sessions.map((session) => (
+              {completed.map((session) => (
                 <SessionRow key={session.id} session={session} />
               ))}
             </tbody>
           </table>
         </div>
 
-        {sessions.length === 0 && (
+        {completed.length === 0 && (
           <div className="px-4 py-6 text-center text-xs text-slate-400">
             No hay sesiones registradas para este usuario.
           </div>

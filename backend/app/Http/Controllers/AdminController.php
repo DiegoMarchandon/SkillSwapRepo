@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Carbon\Carbon;
+use App\Models\Reserva;
+
 
 class AdminController extends Controller
 {
@@ -95,50 +97,93 @@ class AdminController extends Controller
      * Historial de sesiones de un usuario (para "Ver historial").
      * GET /api/admin/users/{id}/sessions
      */
-    public function getUserSessions(Request $r, int $id)
+
+    public function getUserSessions(int $id)
     {
         if (!Schema::hasTable('calls')) {
             return response()->json([]);
         }
 
-        // Traemos solo las llamadas donde el usuario participó
-        $q = DB::table('calls')
-            ->where(function ($qq) use ($id) {
-                $qq->where('caller_id', $id)
-                    ->orWhere('receiver_id', $id);
+        // Traemos SOLO sesiones completadas donde participó el usuario
+        $rows = DB::table('calls as c')
+            ->join('users as caller', 'c.caller_id', '=', 'caller.id')
+            ->join('users as receiver', 'c.receiver_id', '=', 'receiver.id')
+            ->where('c.status', 'completed')
+            ->where(function ($q) use ($id) {
+                $q->where('c.caller_id', $id)
+                    ->orWhere('c.receiver_id', $id);
             })
-            // si tenés started_at, mejor ordenar por ahí
-            ->orderByDesc('started_at')
-            ->orderByDesc('created_at');
+            ->orderByDesc('c.started_at')
+            ->orderByDesc('c.created_at')
+            ->selectRaw('
+            c.id,
+            c.caller_id,
+            c.receiver_id,
+            c.started_at,
+            c.ended_at,
+            c.status,
+            c.created_at,
+            c.updated_at,
+            caller.name   as caller_name,
+            receiver.name as receiver_name,
+            TIMESTAMPDIFF(MINUTE, c.started_at, c.ended_at) as raw_duration
+        ')
+            ->get();
 
-        $sessions = $q->get()->map(function ($row) use ($id) {
-            // Rol relativo en esa llamada
-            if (isset($row->caller_id) && $row->caller_id == $id) {
-                $row->role = 'caller';   // o 'instructor' si querés
-            } elseif (isset($row->receiver_id) && $row->receiver_id == $id) {
-                $row->role = 'receiver'; // o 'student'
+        $sessions = $rows->map(function ($row) use ($id) {
+            // 1) Buscamos una reserva que matchee ese par de usuarios
+            $reserva = Reserva::where(function ($q) use ($row) {
+                $q->where('instructor_id', $row->caller_id)
+                    ->where('alumno_id', $row->receiver_id);
+            })
+                ->orWhere(function ($q) use ($row) {
+                    $q->where('instructor_id', $row->receiver_id)
+                        ->where('alumno_id', $row->caller_id);
+                })
+                ->orderByDesc('created_at')
+                ->first();
+
+            if ($reserva) {
+                // Usamos reserva como fuente de verdad
+                if ($reserva->instructor_id == $row->caller_id) {
+                    $row->instructor_id   = $row->caller_id;
+                    $row->instructor_name = $row->caller_name;
+                    $row->student_id      = $row->receiver_id;
+                    $row->student_name    = $row->receiver_name;
+                } else {
+                    $row->instructor_id   = $row->receiver_id;
+                    $row->instructor_name = $row->receiver_name;
+                    $row->student_id      = $row->caller_id;
+                    $row->student_name    = $row->caller_name;
+                }
+            } else {
+                // Fallback viejo: asumimos caller como instructor
+                $row->instructor_id   = $row->caller_id;
+                $row->instructor_name = $row->caller_name;
+                $row->student_id      = $row->receiver_id;
+                $row->student_name    = $row->receiver_name;
+            }
+
+            // Alias por compatibilidad
+            $row->alumno_id   = $row->student_id;
+            $row->alumno_name = $row->student_name;
+
+            // 2) Rol del usuario cuyo historial estamos viendo
+            if ($id == $row->instructor_id) {
+                $row->role = 'instructor';
+            } elseif ($id == $row->student_id) {
+                $row->role = 'student';
             } else {
                 $row->role = 'participant';
             }
 
-            // Fallback de started_at
-            if (empty($row->started_at) && !empty($row->created_at)) {
-                $row->started_at = $row->created_at;
-            }
+            // 3) Duración
+            $row->duration_minutes = $row->raw_duration !== null
+                ? max(1, (int) $row->raw_duration)
+                : 0;
 
-            // Duración en minutos usando started_at / ended_at
-            $row->duration_minutes = 0;
+            unset($row->raw_duration);
 
-            if (!empty($row->started_at) && !empty($row->ended_at)) {
-                $start = Carbon::parse($row->started_at);
-                $end   = Carbon::parse($row->ended_at);
-
-                $mins = $start->diffInMinutes($end);
-                // si querés evitar que una sesión de 40s salga como 0:
-                $row->duration_minutes = max(1, $mins);
-            }
-
-            // Nombre genérico si no tenés aún skill_name
             if (!isset($row->skill_name)) {
                 $row->skill_name = 'Sesión de SkillSwap';
             }

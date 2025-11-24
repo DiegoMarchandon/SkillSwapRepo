@@ -8,6 +8,8 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use App\Models\Call;
+
 
 class MeetingController extends Controller
 {
@@ -212,11 +214,37 @@ class MeetingController extends Controller
             return response()->json(['error' => 'No access'], 403);
         }
 
+        // 1) Marcar la reserva como finalizada
         $reserva->update([
             'meeting_ended_at' => now(),
             'estado'           => 'finalizada',
         ]);
 
-        return response()->json(['success' => true]);
+        // 2) Buscar la última call activa entre instructor y alumno y cerrarla
+        $call = Call::whereNull('ended_at')
+            ->where(function ($q) use ($reserva) {
+                $q->where(function ($qq) use ($reserva) {
+                    // instructor llamó al alumno
+                    $qq->where('caller_id', $reserva->instructor_id)
+                        ->where('receiver_id', $reserva->alumno_id);
+                })->orWhere(function ($qq) use ($reserva) {
+                    // alumno llamó al instructor
+                    $qq->where('caller_id', $reserva->alumno_id)
+                        ->where('receiver_id', $reserva->instructor_id);
+                });
+            })
+            ->orderByDesc('started_at')
+            ->first();
+
+        if ($call) {
+            $call->ended_at = now();
+            $call->status   = 'completed';
+            $call->save();
+        }
+
+        return response()->json([
+            'success' => true,
+            'call_id' => $call?->id,
+        ]);
     }
 }
