@@ -188,6 +188,15 @@ class AdminController extends Controller
                 $row->skill_name = 'Sesión de SkillSwap';
             }
 
+            // traemos las métricas de call_metrics
+                // Con esto, incluimos un array con los datos de call_metrics 
+                // que nuestra función calcularCalidad podrá usar correctamente.
+            $row->metrics = DB::table('call_metrics')
+            ->where('call_id', $row->id)
+            ->select('fps', 'packets_lost', 'jitter', 'latency', 'created_at')
+            ->orderBy('created_at')
+            ->get();
+
             return $row;
         });
 

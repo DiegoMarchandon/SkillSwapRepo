@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 
-export default function useAutoTyping(fixedText, words = [], initialValue = "") {
+export default function useAutoTyping(fixedText, words, initialValue = "") {
   const [displayedText, setDisplayedText] = useState(initialValue);
   const [isFixedTextDone, setIsFixedTextDone] = useState(false);
   const [wordIndex, setWordIndex] = useState(0);
@@ -21,11 +22,11 @@ export default function useAutoTyping(fixedText, words = [], initialValue = "") 
         setSubIndex(0);
       }
     }
-  }, [subIndex, isFixedTextDone, fixedText]);
+  }, [subIndex, isFixedTextDone]);
 
   // Animación para las palabras dinámicas
   useEffect(() => {
-    if (!isFixedTextDone || words.length === 0) return;
+    if (!isFixedTextDone) return;
 
     const currentWord = words[wordIndex];
     let timeout;
@@ -49,7 +50,7 @@ export default function useAutoTyping(fixedText, words = [], initialValue = "") 
     }
 
     return () => clearTimeout(timeout);
-  }, [subIndex, isDeleting, wordIndex, isFixedTextDone, words, fixedText]);
+  }, [subIndex, isDeleting, wordIndex, isFixedTextDone]);
 
   return displayedText;
 }
