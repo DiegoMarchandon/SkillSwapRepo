@@ -372,19 +372,8 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
 useEffect(() => {
   if (!meetingId) return;
 
-  const getSocketUrl = () => {
-    const hostname = window.location.hostname;
-    
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:4000';
-    } else {
-      // Para acceso remoto, usar la IP del servidor donde corre socket.io
-      // Si tu frontend y socket.io están en el mismo servidor:
-      return `http://${hostname}:4000`;
-    }
-  };
-
-  const socketUrl = getSocketUrl();
+  const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000';
+  
   console.log('🔌 Conectando a socket:', socketUrl);
   
   socketRef.current = io(socketUrl, {
