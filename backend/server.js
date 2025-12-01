@@ -16,10 +16,12 @@ io.on("connection", (socket) => {
   console.log("Nuevo cliente conectado:", socket.id);
 
   socket.on("offer", (data) => {
+    console.log("📨 Offer recibido, haciendo broadcast...");
     socket.broadcast.emit("offer", data);
   });
 
   socket.on("answer", (data) => {
+    console.log("📨 Answer recibido, haciendo broadcast...");
     socket.broadcast.emit("answer", data);
   });
 
@@ -37,6 +39,10 @@ io.on("connection", (socket) => {
   });
 });
 
-server.listen(4000, () => {
-  console.log("Servidor de signaling WebRTC corriendo en http://localhost:4000");
+// CAMBIAR ESTA LÍNEA - Escuchar en todas las interfaces de red
+server.listen(4000, '0.0.0.0', () => {
+  console.log("✅ Servidor de signaling WebRTC corriendo en:");
+  console.log("   - http://localhost:4000");
+  console.log("   - http://[TU-IP-LOCAL]:4000");
+  console.log("   - Accesible desde la red local");
 });

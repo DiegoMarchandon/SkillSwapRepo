@@ -10,13 +10,20 @@ import Image from "next/image";
 export default function SkillCard({skillPNG, className="", style={}, ...props }){
     return (
         <motion.div
+          whileHover={{ 
+            scale: 1.3, 
+          }}
           className={`w-[60px] h-[60px] rounded-[5px] ${className}`}
           style={style}
           {...props}
           animate={{rotate:360}}
-          // transition={{duration:4}}
           transition={{
-            repeat: Infinity, repeatDelay: 0, ease: "easeInOut",duration: 10
+            scale: { duration: 0.2 }, rotate: {
+              repeat: Infinity, 
+              repeatDelay: 0, 
+              ease: "easeInOut",
+              duration: 10
+            }
           }}
           >
           <Image

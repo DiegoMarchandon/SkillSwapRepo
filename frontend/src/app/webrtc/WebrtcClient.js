@@ -189,10 +189,10 @@ export default function WebrtcClient() {
       console.log('🚀 Starting call as caller - User is caller:', !!otherUserId);
       setCallStarted(true);
       setIsCaller(true);
-
+  
       const callId = await startCall(otherUserId, usuarioHabilidadId);
       localStorage.setItem('call_id', callId);
-
+  
       // Obtener media local con reintentos
       const stream = await getLocalMedia();
       
@@ -203,39 +203,47 @@ export default function WebrtcClient() {
           { urls: 'turn:localhost:3478', username: 'admin', credential: '12345' },
         ],
       });
-
-      // Configurar event handlers
+  
+      // Configurar event handlers CON MÁS LOGGING
       pcRef.current.onicecandidate = (event) => {
         if (event.candidate) {
+          console.log('📤 Sending ICE candidate from caller');
           socketRef.current.emit('ice-candidate', event.candidate);
         }
       };
-
+  
       pcRef.current.ontrack = (event) => {
+        console.log('🎬 Caller received remote track:', event.track.kind);
         if (remoteVideoRef.current && event.streams[0]) {
           remoteVideoRef.current.srcObject = event.streams[0];
+          console.log('✅ Caller remote video stream set successfully');
         }
       };
-
+  
       // Añadir tracks locales solo si existen
       if (stream) {
         stream.getTracks().forEach(track => {
+          console.log('📹 Caller adding local track:', track.kind);
           pcRef.current.addTrack(track, stream);
         });
       }
-
+  
       // Crear y enviar offer
+      console.log('🔄 Creating offer');
       const offer = await pcRef.current.createOffer();
+      
+      console.log('🔄 Setting local description (offer)');
       await pcRef.current.setLocalDescription(offer);
       
+      console.log('📤 Sending offer to receiver');
       socketRef.current.emit('offer', { 
         offer, 
         call_id: callId 
       });
-
+  
       startCollecting();
-      console.log('✅ Call started successfully as caller');
-
+      console.log('✅ Caller ready and waiting for answer');
+  
     } catch (error) {
       console.error('❌ Error starting call as caller:', error);
       setCallStarted(false);
@@ -244,66 +252,85 @@ export default function WebrtcClient() {
   }, [otherUserId, usuarioHabilidadId, startCall, getLocalMedia, startCollecting, callStarted]);
 
   // Handler para offer (receiver)
-  const handleOffer = useCallback(async ({ offer, call_id }) => {
-    // Solo procesar offer si NO somos el caller
-    if (callStarted || otherUserId) {
-      console.log('Ignoring offer: already call started or we are the caller');
-      return;
-    }
+  // Handler para offer (receiver) - MÁS PERMISIVO
+const handleOffer = useCallback(async ({ offer, call_id }) => {
+  // Lógica MEJORADA: Solo ignorar si YA somos caller activo
+  if (callStarted && isCaller) {
+    console.log('Ignoring offer: we are already the active caller');
+    return;
+  }
+  
+  // Si ya tenemos una PC pero no somos caller, limpiarla
+  if (pcRef.current && !isCaller) {
+    console.log('🔄 Cleaning existing PeerConnection for new offer');
+    pcRef.current.close();
+    pcRef.current = null;
+  }
+  
+  console.log('📞 Received offer, acting as receiver');
+  setCallStarted(true);
+  setIsCaller(false);
+  localStorage.setItem('call_id', call_id);
+
+  try {
+    // Obtener media local con reintentos
+    const stream = await getLocalMedia();
     
-    console.log('📞 Received offer, acting as receiver');
-    setCallStarted(true);
-    setIsCaller(false);
-    localStorage.setItem('call_id', call_id);
-  
-    try {
-      // Obtener media local con reintentos
-      const stream = await getLocalMedia();
-      
-      // Crear nueva PeerConnection para receiver
-      pcRef.current = new RTCPeerConnection({
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'turn:localhost:3478', username: 'admin', credential: '12345' },
-        ],
-      });
-  
-      // Configurar event handlers
-      pcRef.current.onicecandidate = (event) => {
-        if (event.candidate) {
-          socketRef.current.emit('ice-candidate', event.candidate);
-        }
-      };
-  
-      pcRef.current.ontrack = (event) => {
-        if (remoteVideoRef.current && event.streams[0]) {
-          remoteVideoRef.current.srcObject = event.streams[0];
-        }
-      };
-  
-      // Añadir tracks locales solo si existen
-      if (stream) {
-        stream.getTracks().forEach(track => {
-          pcRef.current.addTrack(track, stream);
-        });
+    // Crear nueva PeerConnection para receiver
+    pcRef.current = new RTCPeerConnection({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'turn:localhost:3478', username: 'admin', credential: '12345' },
+      ],
+    });
+
+    // Configurar event handlers CON MÁS LOGGING
+    pcRef.current.onicecandidate = (event) => {
+      if (event.candidate) {
+        console.log('📤 Sending ICE candidate');
+        socketRef.current.emit('ice-candidate', event.candidate);
       }
-  
-      // Procesar offer y crear answer
-      await pcRef.current.setRemoteDescription(new RTCSessionDescription(offer));
-      const answer = await pcRef.current.createAnswer();
-      await pcRef.current.setLocalDescription(answer);
-      
-      socketRef.current.emit('answer', { answer, call_id });
-      startCollecting();
-      
-      console.log('✅ Receiver ready');
-  
-    } catch (error) {
-      console.error('❌ Error handling offer as receiver:', error);
-      setCallStarted(false);
-      setIsCaller(false);
+    };
+
+    pcRef.current.ontrack = (event) => {
+      console.log('🎬 Received remote track:', event.track.kind);
+      if (remoteVideoRef.current && event.streams[0]) {
+        remoteVideoRef.current.srcObject = event.streams[0];
+        console.log('✅ Remote video stream set successfully');
+      }
+    };
+
+    // Añadir tracks locales solo si existen
+    if (stream) {
+      stream.getTracks().forEach(track => {
+        console.log('📹 Adding local track:', track.kind);
+        pcRef.current.addTrack(track, stream);
+      });
     }
-  }, [getLocalMedia, startCollecting, callStarted, otherUserId]);
+
+    // Procesar offer y crear answer CON MÁS LOGGING
+    console.log('🔄 Setting remote description (offer)');
+    await pcRef.current.setRemoteDescription(new RTCSessionDescription(offer));
+    
+    console.log('🔄 Creating answer');
+    const answer = await pcRef.current.createAnswer();
+    
+    console.log('🔄 Setting local description (answer)');
+    await pcRef.current.setLocalDescription(answer);
+    
+    console.log('📤 Sending answer to caller');
+    socketRef.current.emit('answer', { answer, call_id });
+    
+    startCollecting();
+    
+    console.log('✅ Receiver ready and connected');
+
+  } catch (error) {
+    console.error('❌ Error handling offer as receiver:', error);
+    setCallStarted(false);
+    setIsCaller(false);
+  }
+}, [getLocalMedia, startCollecting, callStarted, isCaller]);
 
   // ---- Terminar llamada ----
   const endCall = useCallback(async () => {
@@ -342,89 +369,122 @@ export default function WebrtcClient() {
   }, [meetingId, stopCollecting]);
 
   // ---- useEffect principal ----
-  useEffect(() => {
-    if (!meetingId) return;
+useEffect(() => {
+  if (!meetingId) return;
 
-    socketRef.current = io('http://localhost:4000');
-
-    // Determinar quién es el caller basado en el usuario actual
-    // El caller es el que tiene otherUserId (inicia la llamada)
-    const isCurrentUserCaller = !!otherUserId;
-
-    // Configurar event listeners
-    socketRef.current.on('offer', handleOffer);
+  const getSocketUrl = () => {
+    const hostname = window.location.hostname;
     
-    // Handler para answer (caller)
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:4000';
+    } else {
+      // Para acceso remoto, usar la IP del servidor donde corre socket.io
+      // Si tu frontend y socket.io están en el mismo servidor:
+      return `http://${hostname}:4000`;
+    }
+  };
+
+  const socketUrl = getSocketUrl();
+  console.log('🔌 Conectando a socket:', socketUrl);
+  
+  socketRef.current = io(socketUrl, {
+    timeout: 10000,
+    transports: ['websocket', 'polling']
+  });
+
+  // Manejar eventos de conexión
+  socketRef.current.on('connect', () => {
+    console.log('✅ Socket conectado exitosamente');
+  });
+
+  socketRef.current.on('connect_error', (error) => {
+    console.error('❌ Error de conexión socket:', error.message);
+  });
+
+  // socketRef.current = io('http://localhost:4000');
+
+  // Lógica MEJORADA para determinar caller/receiver
+  // En entorno real: el caller es el que INICIÓ la llamada (tiene otherUserId)
+  // Pero necesitamos evitar que AMBOS sean callers
+  const isCurrentUserCaller = !!otherUserId && !callStarted;
+  
+  console.log('🎭 Role determination:', {
+    otherUserId: !!otherUserId,
+    callStarted,
+    isCurrentUserCaller
+  });
+
+  // Configurar event listeners
+  socketRef.current.on('offer', handleOffer);
+  
+  // Handler para answer (caller) - MÁS ROBUSTO
   socketRef.current.on('answer', async ({ answer }) => {
     if (!pcRef.current) {
       console.warn('No PeerConnection for answer');
       return;
     }
     
-    // Solo procesar answer si somos el caller y estamos en estado correcto
-    if (pcRef.current.signalingState !== 'have-local-offer') {
-      console.warn('Ignoring answer: wrong state', pcRef.current.signalingState);
-      return;
-    }
-      
-      try {
-        await pcRef.current.setRemoteDescription(new RTCSessionDescription(answer));
-        console.log('✅ Answer set successfully');
-      } catch (error) {
-        console.error('Error setting remote description:', error);
+    console.log('📨 Received answer, current state:', pcRef.current.signalingState);
+    
+    try {
+      await pcRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+      console.log('✅ Answer set successfully');
+    } catch (error) {
+      console.error('Error setting remote description:', error);
+      // Intentar recovery si es error de estado
+      if (error.toString().includes('state')) {
+        console.log('🔄 Attempting state recovery...');
+        // Podemos recrear la offer si es necesario
       }
-    });
+    }
+  });
 
-    // Handler para ICE candidates
+  // Handler para ICE candidates - MÁS PERMISIVO
   socketRef.current.on('ice-candidate', async (candidate) => {
     if (!pcRef.current) {
       console.warn('ICE candidate ignored: no PeerConnection');
       return;
     }
     
-    // Esperar a tener remoteDescription antes de agregar ICE candidates
-    if (!pcRef.current.remoteDescription) {
-      console.log('🕒 ICE candidate queued - waiting for remote description');
-      // Podemos guardar el candidate y agregarlo después
-      return;
+    try {
+      await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+      console.log('✅ ICE candidate added');
+    } catch (err) {
+      console.log('🕒 ICE candidate not added (normal during negotiation):', err.message);
+      // No es crítico - WebRTC maneja esto internamente
     }
-      
-      try {
-        await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
-      } catch (err) {
-        console.error('Error adding ICE candidate:', err);
-      }
-    });
+  });
 
-    // Handler para fin de llamada
-    socketRef.current.on('end-call', ({ meetingId: endedMeetingId }) => {
-      if (endedMeetingId !== meetingId) return;
-      endCall();
-    });
+  // Handler para fin de llamada
+  socketRef.current.on('end-call', ({ meetingId: endedMeetingId }) => {
+    if (endedMeetingId !== meetingId) return;
+    endCall();
+  });
 
-    // Iniciar como caller SOLO si tenemos otherUserId
-  if (isCurrentUserCaller && !callStarted) {
-    console.log('🎯 This user is the caller, starting call...');
+  // Iniciar como caller SOLO si somos el caller designado Y no hemos empezado
+  if (isCurrentUserCaller) {
+    console.log('🎯 This user is the CALLER, starting call in 3 seconds...');
+    setIsCaller(true);
+    
     const timer = setTimeout(() => {
       startCallAsCaller();
-    }, 2000);
+    }, 3000);
 
     return () => clearTimeout(timer);
-  } else if (!isCurrentUserCaller) {
-    console.log('🎯 This user is the receiver, waiting for offer...');
+  } else {
+    console.log('🎯 This user is the RECEIVER, waiting for offer...');
     setIsCaller(false);
   }
 
-    // Cleanup
-    return () => {
-      if (!callStarted) {
-        // Solo cleanup si no hay llamada en curso
-        if (localStreamRef.current) {
-          localStreamRef.current.getTracks().forEach(track => track.stop());
-        }
+  // Cleanup
+  return () => {
+    if (!callStarted) {
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => track.stop());
       }
-    };
-  }, [meetingId, otherUserId, callStarted, startCallAsCaller, handleOffer, endCall]);
+    }
+  };
+}, [meetingId, otherUserId, callStarted, startCallAsCaller, handleOffer, endCall]);
 
   return (
     <div className="p-6 space-y-4">
@@ -437,6 +497,14 @@ export default function WebrtcClient() {
           {mediaError}
         </div>
       )}
+
+      {/* Agregar este nuevo elemento */}
+      <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded">
+        {isCaller ? 
+          '💚 Eres el iniciador de la llamada (Caller)' : 
+          '💙 Esperando llamada entrante (Receiver)'}
+        {callStarted && ' - ✅ Conectado'}
+      </div>
 
       <div className="flex gap-4">
         <div className="w-1/2">
@@ -474,7 +542,7 @@ export default function WebrtcClient() {
         </button>
         <span className="text-sm text-gray-600">
           Estado: {callStarted ? 'Conectado' : 'Conectando...'} | 
-          {/* Rol: {isCaller ? 'Caller' : 'Receiver'} */}
+          Rol: {isCaller ? 'Caller' : 'Receiver'}
         </span>
       </div>
     </div>
