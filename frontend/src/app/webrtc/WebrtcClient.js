@@ -414,23 +414,34 @@ useEffect(() => {
   
   // Handler para answer (caller) - MÁS ROBUSTO
   socketRef.current.on('answer', async ({ answer }) => {
-    if (!pcRef.current) {
+    const pc = pcRef.current;
+    if (!pc) {
       console.warn('No PeerConnection for answer');
       return;
     }
-    
-    console.log('📨 Received answer, current state:', pcRef.current.signalingState);
-    
+  
+    console.log('📨 Received answer, current state:', pc.signalingState);
+  
+    // 🔒 Importante: sólo aceptamos el answer cuando estamos en have-local-offer
+    if (pc.signalingState !== 'have-local-offer') {
+      console.warn(
+        'Ignoring answer because signalingState is',
+        pc.signalingState
+      );
+      return;
+    }
+  
+    // Si por algún motivo ya hay una remoteDescription, también lo ignoramos
+    if (pc.remoteDescription) {
+      console.warn('Ignoring answer because remoteDescription already set');
+      return;
+    }
+  
     try {
-      await pcRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+      await pc.setRemoteDescription(new RTCSessionDescription(answer));
       console.log('✅ Answer set successfully');
     } catch (error) {
       console.error('Error setting remote description:', error);
-      // Intentar recovery si es error de estado
-      if (error.toString().includes('state')) {
-        console.log('🔄 Attempting state recovery...');
-        // Podemos recrear la offer si es necesario
-      }
     }
   });
 
