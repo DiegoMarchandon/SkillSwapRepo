@@ -265,6 +265,8 @@ export default function WebrtcClient() {
 
     socket.on('connect', () => {
       console.log('✅ Socket connected successfully, ID:', socket.id);
+      // 🔥 Unirse a la sala de esta meeting
+      socketRef.current?.emit('join', { meetingId });
     });
 
     socket.on('connect_error', (error) => {
@@ -294,7 +296,10 @@ export default function WebrtcClient() {
     };
 
     // -------- HANDLERS DE SEÑALIZACIÓN --------
-    const handleOffer = async ({ offer, call_id }) => {
+    const handleOffer = async ({ offer, call_id, meetingId: incomingMeeting }) => {
+      // Si viniera algo de otra sala por error, lo ignoramos
+      if (incomingMeeting && incomingMeeting !== meetingId) return;
+
       console.log('📞 OFFER RECEIVED - Starting receiver process');
 
       if (callStarted || otherUserId) {
@@ -329,7 +334,10 @@ export default function WebrtcClient() {
         pc.onicecandidate = (event) => {
           if (event.candidate) {
             console.log('📤 Sending ICE candidate from receiver');
-            socket.emit('ice-candidate', event.candidate);
+            socket.emit('ice-candidate', {
+              candidate: event.candidate,
+              meetingId,
+            });
           }
         };
 
@@ -361,7 +369,7 @@ export default function WebrtcClient() {
         await pc.setLocalDescription(answer);
 
         console.log('📤 Sending answer to caller, call_id:', call_id);
-        socket.emit('answer', { answer, call_id });
+        socket.emit('answer', { answer, call_id, meetingId });
 
         startCollecting();
         console.log('✅✅✅ RECEIVER FULLY READY ✅✅✅');
@@ -372,7 +380,9 @@ export default function WebrtcClient() {
       }
     };
 
-    const handleAnswer = async ({ answer }) => {
+    const handleAnswer = async ({ answer, meetingId: incomingMeeting }) => {
+      if (incomingMeeting && incomingMeeting !== meetingId) return;
+
       const pc = pcRef.current;
       if (!pc) {
         console.warn('No PeerConnection for answer');
@@ -402,8 +412,13 @@ export default function WebrtcClient() {
       }
     };
 
-    const handleIceCandidate = async (candidate) => {
-      if (!pcRef.current) return;
+    const handleIceCandidate = async ({
+      candidate,
+      meetingId: incomingMeeting,
+    }) => {
+      if (incomingMeeting && incomingMeeting !== meetingId) return;
+      if (!pcRef.current || !candidate) return;
+
       try {
         await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
       } catch (err) {
@@ -500,7 +515,10 @@ export default function WebrtcClient() {
           pc.onicecandidate = (event) => {
             if (event.candidate && socket.connected) {
               console.log('📤 Sending ICE candidate from caller');
-              socket.emit('ice-candidate', event.candidate);
+              socket.emit('ice-candidate', {
+                candidate: event.candidate,
+                meetingId,
+              });
             }
           };
 
@@ -526,7 +544,7 @@ export default function WebrtcClient() {
           await pc.setLocalDescription(offer);
 
           console.log('📤 Sending offer to receiver, call_id:', callId);
-          socket.emit('offer', { offer, call_id: callId });
+          socket.emit('offer', { offer, call_id: callId, meetingId });
 
           startCollecting();
           console.log('✅ Caller ready and waiting for answer');
