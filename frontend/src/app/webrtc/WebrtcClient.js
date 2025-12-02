@@ -389,8 +389,28 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
     console.log('🔌 Conectando a socket:', socketUrl);
   
     socketRef.current = io(socketUrl, {
-      timeout: 10000,
+      timeout: 15000, // Aumentar timeout
       transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
+    });
+    
+    // Agregá estos listeners adicionales:
+    socketRef.current.on('connecting', () => {
+      console.log('🔌 Socket connecting...');
+    });
+    
+    socketRef.current.on('reconnect', (attempt) => {
+      console.log(`🔌 Socket reconnected after ${attempt} attempts`);
+    });
+    
+    socketRef.current.on('reconnect_error', (error) => {
+      console.error('🔌 Socket reconnect error:', error);
+    });
+    
+    socketRef.current.on('reconnect_failed', () => {
+      console.error('🔌 Socket reconnect failed');
     });
   
     socketRef.current.on('connect', () => {
@@ -416,6 +436,27 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
       if (callStarted || otherUserId) {
         console.log('Ignoring offer: already call started or we are the caller');
         return;
+      }
+
+      // 🔴 ESPERAR a que el socket esté conectado
+      if (!socketRef.current?.connected) {
+        console.log('⏳ Waiting for socket connection before processing offer...');
+        await new Promise((resolve) => {
+          if (socketRef.current?.connected) {
+            resolve();
+            return;
+          }
+          const interval = setInterval(() => {
+            if (socketRef.current?.connected) {
+              clearInterval(interval);
+              resolve();
+            }
+          }, 100);
+          setTimeout(() => {
+            clearInterval(interval);
+            resolve(); // Continuar de todos modos
+          }, 5000);
+        });
       }
       
       console.log('📞 Received offer, acting as receiver');
@@ -576,12 +617,68 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
         try {
           console.log('🚀 Starting call as caller');
           setCallStarted(true);
-  
+      
           const callId = await startCall(otherUserId, usuarioHabilidadId);
           localStorage.setItem('call_id', callId);
-  
-          const stream = await getLocalMedia();
+      
+          // 🔴 PRIMERO: Esperar a que el socket esté conectado
+          console.log('⏳ Waiting for socket connection...');
+          await new Promise((resolve, reject) => {
+            if (socketRef.current?.connected) {
+              console.log('✅ Socket already connected');
+              resolve();
+              return;
+            }
+            
+            const checkConnection = setInterval(() => {
+              if (socketRef.current?.connected) {
+                clearInterval(checkConnection);
+                console.log('✅ Socket now connected');
+                resolve();
+              }
+            }, 100);
+            
+            // Timeout después de 10 segundos
+            setTimeout(() => {
+              clearInterval(checkConnection);
+              reject(new Error('Socket connection timeout'));
+            }, 10000);
+            
+            // También escuchar evento connect
+            const onConnect = () => {
+              clearInterval(checkConnection);
+              socketRef.current?.off('connect', onConnect);
+              console.log('✅ Socket connected via event');
+              resolve();
+            };
+            
+            socketRef.current?.on('connect', onConnect);
+          });
+      
+          // 🔴 SEGUNDO: Obtener media local
+          console.log('🎯 Getting local media...');
+          let stream;
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ 
+              video: true, 
+              audio: true 
+            });
+            console.log('✅ Video obtained successfully');
+          } catch (videoError) {
+            console.log('⚠️ Video failed, trying audio only:', videoError.message);
+            stream = await navigator.mediaDevices.getUserMedia({ 
+              video: false, 
+              audio: true 
+            });
+            setMediaError('Solo audio disponible');
+          }
           
+          localStreamRef.current = stream;
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = stream;
+          }
+          
+          // 🔴 TERCERO: Crear PeerConnection
           pcRef.current = new RTCPeerConnection({
             iceServers: [
               { urls: 'stun:stun.l.google.com:19302' },
@@ -589,33 +686,31 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
               { urls: 'stun:stun2.l.google.com:19302' },
             ],
           });
-  
+      
           pcRef.current.onicecandidate = (event) => {
-            if (event.candidate) {
+            if (event.candidate && socketRef.current?.connected) {
               console.log('📤 Sending ICE candidate from caller');
               socketRef.current.emit('ice-candidate', event.candidate);
             }
           };
       
           pcRef.current.ontrack = (event) => {
-            console.log('🎬 Caller received remote track:', event.track.kind);
+            console.log('🎬 Caller received REMOTE track:', event.track.kind);
             if (remoteVideoRef.current && event.streams[0]) {
               remoteVideoRef.current.srcObject = event.streams[0];
-              console.log('✅ Caller remote video stream set');
+              console.log('✅ Remote video stream set');
             }
           };
       
+          // Añadir tracks locales
           if (stream) {
             stream.getTracks().forEach(track => {
               console.log('📹 Caller adding local track:', track.kind);
               pcRef.current.addTrack(track, stream);
             });
-            
-            if (localVideoRef.current) {
-              localVideoRef.current.srcObject = stream;
-            }
           }
       
+          // 🔴 CUARTO: Crear y enviar offer
           console.log('🔄 Creating offer...');
           const offer = await pcRef.current.createOffer();
           
@@ -624,17 +719,17 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
           
           console.log('📤 Sending offer to receiver, call_id:', callId);
           
-          // 🔴 VERIFICAR que socket esté conectado antes de emitir
-          if (socketRef.current && socketRef.current.connected) {
+          // 🔴 VERIFICACIÓN DOBLE de conexión
+          if (socketRef.current?.connected) {
             socketRef.current.emit('offer', { offer, call_id: callId });
-            console.log('✅ Offer sent successfully');
+            console.log('✅✅✅ OFFER SENT SUCCESSFULLY ✅✅✅');
           } else {
-            console.error('❌ Socket not connected, cannot send offer');
+            console.error('❌❌❌ CRITICAL: Socket still not connected');
             // Reintentar en 1 segundo
             setTimeout(() => {
               if (socketRef.current?.connected) {
                 socketRef.current.emit('offer', { offer, call_id: callId });
-                console.log('✅ Offer sent (retry)');
+                console.log('✅ Offer sent (delayed)');
               }
             }, 1000);
           }
