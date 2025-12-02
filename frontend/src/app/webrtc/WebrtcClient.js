@@ -375,149 +375,112 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
   }, [meetingId, stopCollecting]);
 
   // ---- useEffect principal ----
-useEffect(() => {
-  if (!meetingId) return;
-
-  const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000';
+  useEffect(() => {
+    if (!meetingId) return;
   
-  console.log('🔌 Conectando a socket:', socketUrl);
-  
-  socketRef.current = io(socketUrl, {
-    timeout: 10000,
-    transports: ['websocket', 'polling']
-  });
-
-  // Manejar eventos de conexión
-  socketRef.current.on('connect', () => {
-    console.log('✅ Socket conectado exitosamente');
-  });
-
-  socketRef.current.on('connect_error', (error) => {
-    console.error('❌ Error de conexión socket:', error.message);
-  });
-
-  // socketRef.current = io('http://localhost:4000');
-
-  // Lógica MEJORADA para determinar caller/receiver
-  // En entorno real: el caller es el que INICIÓ la llamada (tiene otherUserId)
-  // Pero necesitamos evitar que AMBOS sean callers
-  const isCurrentUserCaller = !!otherUserId && !callStarted;
-  
-  console.log('🎭 Role determination:', {
-    otherUserId: !!otherUserId,
-    callStarted,
-    isCurrentUserCaller
-  });
-
-  // Configurar event listeners
-  socketRef.current.on('offer', handleOffer);
-  
-  // Handler para answer (caller) - MÁS ROBUSTO
-  socketRef.current.on('answer', async ({ answer }) => {
-    const pc = pcRef.current;
-    if (!pc) {
-      console.warn('No PeerConnection for answer');
+    // 👇 Evita conexiones duplicadas
+    if (socketRef.current) {
+      console.log('⚠️ Socket ya inicializado, no creo otro');
       return;
     }
   
-    console.log('📨 Received answer, current state:', pc.signalingState);
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
   
-    // 🔒 Importante: sólo aceptamos el answer cuando estamos en have-local-offer
-    if (pc.signalingState !== 'have-local-offer') {
-      console.warn(
-        'Ignoring answer because signalingState is',
-        pc.signalingState
-      );
-      return;
-    }
+    console.log('🔌 Conectando a socket:', socketUrl);
   
-    // Si por algún motivo ya hay una remoteDescription, también lo ignoramos
-    if (pc.remoteDescription) {
-      console.warn('Ignoring answer because remoteDescription already set');
-      return;
-    }
+    socketRef.current = io(socketUrl, {
+      timeout: 10000,
+      transports: ['websocket', 'polling'],
+    });
   
-    try {
-      await pc.setRemoteDescription(new RTCSessionDescription(answer));
-      console.log('✅ Answer set successfully');
-    } catch (error) {
-      console.error('Error setting remote description:', error);
-    }
-  });
-
-  // Handler para ICE candidates - MÁS PERMISIVO
-  socketRef.current.on('ice-candidate', async (candidate) => {
-    if (!pcRef.current) {
-      console.warn('ICE candidate ignored: no PeerConnection');
-      return;
-    }
-
-    // Esperar a tener remoteDescription para ICE candidates
-  if (!pcRef.current.remoteDescription) {
-    console.log('⏳ ICE candidate queued - waiting for remote description');
-    // Guardar en cola
-    if (!pcRef.current.queuedCandidates) {
-      pcRef.current.queuedCandidates = [];
-    }
-    pcRef.current.queuedCandidates.push(candidate);
-    
-    // Procesar cola después de establecer remoteDescription
-    setTimeout(() => {
-      if (pcRef.current?.remoteDescription && pcRef.current.queuedCandidates) {
-        console.log(`📨 Processing ${pcRef.current.queuedCandidates.length} queued ICE candidates`);
-        pcRef.current.queuedCandidates.forEach(async (queuedCandidate) => {
-          try {
-            await pcRef.current.addIceCandidate(new RTCIceCandidate(queuedCandidate));
-          } catch (err) {
-            console.warn('Failed to add queued ICE candidate:', err);
-          }
-        });
-        pcRef.current.queuedCandidates = [];
+    socketRef.current.on('connect', () => {
+      console.log('✅ Socket conectado exitosamente');
+    });
+  
+    socketRef.current.on('connect_error', (error) => {
+      console.error('❌ Error de conexión socket:', error.message);
+    });
+  
+    // --- resto de listeners ---
+    socketRef.current.on('offer', handleOffer);
+  
+    socketRef.current.on('answer', async ({ answer }) => {
+      const pc = pcRef.current;
+      if (!pc) {
+        console.warn('No PeerConnection for answer');
+        return;
       }
-    }, 3000);
-    
-    return;
-  }
-    
-    try {
-      await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
-      console.log('✅ ICE candidate added');
-    } catch (err) {
-      console.log('🕒 ICE candidate not added (normal during negotiation):', err.message);
-      // No es crítico - WebRTC maneja esto internamente
-    }
-  });
-
-  // Handler para fin de llamada
-  socketRef.current.on('end-call', ({ meetingId: endedMeetingId }) => {
-    if (endedMeetingId !== meetingId) return;
-    endCall();
-  });
-
-  // Iniciar como caller SOLO si somos el caller designado Y no hemos empezado
-  if (isCurrentUserCaller) {
-    console.log('🎯 This user is the CALLER, starting call in 3 seconds...');
-    setIsCaller(true);
-    
-    const timer = setTimeout(() => {
-      startCallAsCaller();
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  } else {
-    console.log('🎯 This user is the RECEIVER, waiting for offer...');
-    setIsCaller(false);
-  }
-
-  // Cleanup
-  return () => {
-    if (!callStarted) {
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach(track => track.stop());
+  
+      console.log('📨 Received answer, current state:', pc.signalingState);
+  
+      if (pc.signalingState !== 'have-local-offer') {
+        console.warn('Ignoring answer because signalingState is', pc.signalingState);
+        return;
       }
+  
+      if (pc.remoteDescription) {
+        console.warn('Ignoring answer because remoteDescription already set');
+        return;
+      }
+  
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+        console.log('✅ Answer set successfully');
+      } catch (error) {
+        console.error('Error setting remote description:', error);
+      }
+    });
+  
+    socketRef.current.on('ice-candidate', async (candidate) => {
+      if (!pcRef.current) {
+        console.warn('ICE candidate ignored: no PeerConnection');
+        return;
+      }
+  
+      try {
+        await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+        console.log('✅ ICE candidate added');
+      } catch (err) {
+        console.log('🕒 ICE candidate not added (normal during negotiation):', err.message);
+      }
+    });
+  
+    socketRef.current.on('end-call', ({ meetingId: endedMeetingId }) => {
+      if (endedMeetingId !== meetingId) return;
+      endCall();
+    });
+  
+    const isCurrentUserCaller = !!otherUserId; // por ahora simple
+    console.log('🎭 Role determination:', {
+      otherUserId: !!otherUserId,
+      isCurrentUserCaller,
+    });
+  
+    let callTimer = null;
+  
+    if (isCurrentUserCaller) {
+      console.log('🎯 This user is the CALLER, starting in 3s...');
+      setIsCaller(true);
+      callTimer = setTimeout(() => {
+        startCallAsCaller();
+      }, 3000);
+    } else {
+      console.log('🎯 This user is the RECEIVER, waiting for offer...');
+      setIsCaller(false);
     }
-  };
-}, [meetingId, otherUserId, callStarted, startCallAsCaller, handleOffer, endCall]);
+  
+    // 🧹 Cleanup ÚNICO
+    return () => {
+      console.log('🧹 Cleanup socket effect');
+  
+      if (callTimer) clearTimeout(callTimer);
+  
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, [meetingId, otherUserId, startCallAsCaller, handleOffer, endCall]);
 
   return (
     <div className="p-6 space-y-4">
