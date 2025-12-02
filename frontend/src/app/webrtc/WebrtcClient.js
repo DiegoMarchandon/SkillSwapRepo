@@ -12,9 +12,11 @@ export default function WebrtcClient() {
   const remoteVideoRef = useRef(null);
   const pcRef = useRef(null);
   const socketRef = useRef(null);
-  const statsIntervalRef = useRef(null);
-  const metricsRef = useRef([]);
   const localStreamRef = useRef(null);
+
+  // para asegurar que no se arranque más de una vez
+  const callerStartedRef = useRef(false);
+  const receiverStartedRef = useRef(false);
 
   const [isCaller, setIsCaller] = useState(false);
   const [callStarted, setCallStarted] = useState(false);
@@ -28,149 +30,65 @@ export default function WebrtcClient() {
   const otherUserId = search.get('other_user_id');
   const usuarioHabilidadId = search.get('usuario_habilidad_id');
 
-  // ===================== MÉTRICAS =====================
-  const collectStats = useCallback(async () => {
-    if (!pcRef.current) return;
-    try {
-      const stats = await pcRef.current.getStats();
-      stats.forEach((report) => {
-        if (report.type === 'outbound-rtp' && report.kind === 'video') {
-          metricsRef.current.push({
-            timestamp: report.timestamp,
-            bytesSent: report.bytesSent,
-            framesPerSecond: report.framesPerSecond,
-            packetsSent: report.packetsSent,
-            roundTripTime: report.roundTripTime,
-          });
-        }
-        if (report.type === 'inbound-rtp' && report.kind === 'video') {
-          metricsRef.current.push({
-            timestamp: report.timestamp,
-            bytesReceived: report.bytesReceived,
-            packetsLost: report.packetsLost,
-            jitter: report.jitter,
-          });
-        }
-      });
-    } catch (error) {
-      console.warn('Error collecting stats:', error);
-    }
-  }, []);
-
-  const startCollecting = useCallback(() => {
-    if (!statsIntervalRef.current) {
-      statsIntervalRef.current = setInterval(collectStats, 5000);
-    }
-  }, [collectStats]);
-
-  const stopCollecting = useCallback(() => {
-    if (statsIntervalRef.current) {
-      clearInterval(statsIntervalRef.current);
-      statsIntervalRef.current = null;
-    }
-  }, []);
-
-  // ===================== MEDIA LOCAL =====================
+  // =============== MEDIA LOCAL SIMPLE ===============
   const getLocalMedia = useCallback(
     async () => {
       try {
         if (localStreamRef.current) {
-          localStreamRef.current.getTracks().forEach((track) => track.stop());
+          localStreamRef.current.getTracks().forEach((t) => t.stop());
         }
 
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter((d) => d.kind === 'videoinput');
-
-        console.log(
-          '📹 Dispositivos de video disponibles:',
-          videoDevices.map((d) => d.label)
-        );
-
-        let constraints = {
-          video: {
-            width: { ideal: 640 },
-            height: { ideal: 480 },
-          },
+        const constraints = {
+          video: { width: { ideal: 640 }, height: { ideal: 480 } },
           audio: true,
         };
 
-        if (videoDevices.length > 1) {
-          if (isCaller) {
-            const frontCamera = videoDevices.find(
-              (d) =>
-                d.label.toLowerCase().includes('front') ||
-                d.label.toLowerCase().includes('integrated') ||
-                d.label.toLowerCase().includes('face')
-            );
-            if (frontCamera) {
-              constraints.video.deviceId = { exact: frontCamera.deviceId };
-            }
-          } else {
-            const backCamera = videoDevices.find(
-              (d) =>
-                d.label.toLowerCase().includes('back') ||
-                d.label.toLowerCase().includes('external') ||
-                (!d.label.toLowerCase().includes('front') &&
-                  !d.label.toLowerCase().includes('integrated') &&
-                  !d.label.toLowerCase().includes('face'))
-            );
-            if (backCamera) {
-              constraints.video.deviceId = { exact: backCamera.deviceId };
-            }
-          }
-        }
-
-        console.log('🎯 Intentando con constraints:', constraints);
+        console.log('🎯 getUserMedia con constraints:', constraints);
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
 
         localStreamRef.current = stream;
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
         }
-
         setMediaError(null);
         return stream;
-      } catch (error) {
-        console.error('❌ Error obteniendo media:', error);
+      } catch (err) {
+        console.error('❌ Error obteniendo media:', err);
 
-        // Fallback: solo audio
         try {
-          console.log('🔄 Intentando fallback: solo audio');
-          const audioOnlyStream = await navigator.mediaDevices.getUserMedia({
+          console.log('🔄 Fallback solo audio');
+          const audioStream = await navigator.mediaDevices.getUserMedia({
             video: false,
             audio: true,
           });
-
-          localStreamRef.current = audioOnlyStream;
+          localStreamRef.current = audioStream;
           if (localVideoRef.current) {
-            localVideoRef.current.srcObject = audioOnlyStream;
+            localVideoRef.current.srcObject = audioStream;
           }
-
-          setMediaError('Solo audio disponible - cámara en uso o bloqueada');
-          return audioOnlyStream;
-        } catch (audioError) {
-          console.error('❌ Fallback de audio también falló:', audioError);
+          setMediaError('Solo audio disponible');
+          return audioStream;
+        } catch (err2) {
+          console.error('❌ Fallback audio también falló:', err2);
+          setMediaError(`No se pudo acceder a la cámara/micrófono: ${err.message}`);
+          throw err;
         }
-
-        setMediaError(`No se pudo acceder a la cámara: ${error.message}`);
-        throw error;
       }
     },
-    [isCaller]
+    []
   );
 
-  // ===================== CLEANUP GENERAL =====================
+  // =============== CLEANUP ===============
   const cleanup = useCallback(() => {
-    console.log('🧹 Cleaning up call resources');
-
-    stopCollecting();
+    console.log('🧹 Cleanup call');
 
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current.getTracks().forEach((t) => t.stop());
       localStreamRef.current = null;
     }
 
     if (pcRef.current) {
+      pcRef.current.onicecandidate = null;
+      pcRef.current.ontrack = null;
       pcRef.current.close();
       pcRef.current = null;
     }
@@ -183,37 +101,40 @@ export default function WebrtcClient() {
       socketRef.current = null;
     }
 
+    callerStartedRef.current = false;
+    receiverStartedRef.current = false;
     setCallStarted(false);
     setIsCaller(false);
-  }, [stopCollecting]);
+  }, []);
 
-  // ===================== TERMINAR LLAMADA (BOTÓN) =====================
+  // =============== BOTÓN TERMINAR ===============
   const endCall = useCallback(
     async () => {
       try {
-        await api.post(`/meeting/${meetingId}/end`);
+        if (meetingId) {
+          await api.post(`/meeting/${meetingId}/end`);
+        }
         socketRef.current?.emit('end-call', { meetingId });
-      } catch (error) {
-        console.error('Error ending meeting:', error);
+      } catch (e) {
+        console.error('Error ending meeting:', e);
       }
-
       cleanup();
       window.location.href = '/';
     },
     [meetingId, cleanup]
   );
 
-  // ===================== EFFECT PRINCIPAL =====================
+  // =============== EFFECT PRINCIPAL ===============
   useEffect(() => {
     if (!meetingId) return;
 
-    // 🛑 Evitar múltiples inicializaciones
+    // evitar re-inicializar si por algún motivo React vuelve a montar
     if (socketRef.current) {
-      console.log('⚠️ WebRTC ya inicializado, omitiendo nueva conexión');
+      console.log('⚠️ WebRTC ya inicializado, omito nueva conexión');
       return;
     }
 
-    console.log('🟢 Inicializando WebRTC para meeting', meetingId);
+    console.log('🟢 Inicializando WebRTC, meeting:', meetingId);
 
     const socketUrl =
       process.env.NEXT_PUBLIC_SOCKET_URL ||
@@ -224,115 +145,80 @@ export default function WebrtcClient() {
     const socket = io(socketUrl, {
       timeout: 15000,
       transports: ['websocket', 'polling'],
-      reconnection: false, // ⛔ sin reconexión automática para evitar loops
+      reconnection: false, // ⛔ nada de reconectar en loop
     });
 
     socketRef.current = socket;
 
-    // Logs de conexión
-    socket.on('connecting', () => {
-      console.log('🔌 Socket connecting...');
-    });
-
+    // logs básicos
     socket.on('connect', () => {
-      console.log('✅ Socket connected successfully, ID:', socket.id);
+      console.log('✅ Socket conectado, ID:', socket.id);
       socket.emit('join', { meetingId });
     });
 
-    socket.on('connect_error', (error) => {
-      console.error('❌ Error de conexión socket:', error.message);
+    socket.on('connect_error', (err) => {
+      console.error('❌ connect_error:', err.message);
     });
 
-    // Loggear todos los emit
-    const originalEmit = socket.emit.bind(socket);
-    socket.emit = function (event, ...args) {
-      console.log(
-        `📤 Emitting "${event}":`,
-        args[0] ? 'data present' : 'no data'
-      );
-      return originalEmit(event, ...args);
-    };
-
-    // -------- HANDLERS DE SEÑALIZACIÓN --------
+    // ========== HANDLERS SEÑALIZACIÓN ==========
     const handleOffer = async ({ offer, call_id, meetingId: incomingMeeting }) => {
       if (incomingMeeting && incomingMeeting !== meetingId) return;
 
-      console.log('📞 OFFER RECEIVED - Starting receiver process');
+      console.log('📞 OFFER RECIBIDA');
 
-      // Sólo el receiver debe manejar la offer
+      // solo el receiver maneja la offer
       if (otherUserId) {
-        console.log('Ignoring offer because this side es caller');
+        console.log('Soy caller, ignoro offer');
         return;
       }
+
+      if (receiverStartedRef.current) {
+        console.log('Receiver ya está inicializado, ignoro nueva offer');
+        return;
+      }
+      receiverStartedRef.current = true;
 
       setCallStarted(true);
       setIsCaller(false);
       localStorage.setItem('call_id', call_id);
 
       try {
-        console.log('🎯 Getting local media (receiver)...');
         const stream = await getLocalMedia();
-        console.log(
-          '✅ Local media obtained, tracks:',
-          stream?.getTracks().length
-        );
 
         const pc = new RTCPeerConnection({
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-          ],
+          iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
         });
-
         pcRef.current = pc;
 
-        pc.onicecandidate = (event) => {
-          if (event.candidate) {
-            console.log('📤 Sending ICE candidate from receiver');
+        if (stream) {
+          stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+        }
+
+        pc.onicecandidate = (e) => {
+          if (e.candidate) {
+            console.log('📤 ICE (receiver)');
             socket.emit('ice-candidate', {
-              candidate: event.candidate,
+              candidate: e.candidate,
               meetingId,
             });
           }
         };
 
-        pc.ontrack = (event) => {
-          console.log('🎬 Receiver received remote track:', event.track.kind);
-          if (remoteVideoRef.current && event.streams[0]) {
-            remoteVideoRef.current.srcObject = event.streams[0];
-            console.log('✅ Receiver remote video stream set');
+        pc.ontrack = (e) => {
+          console.log('🎬 Receiver ontrack:', e.track.kind);
+          if (remoteVideoRef.current && e.streams[0]) {
+            remoteVideoRef.current.srcObject = e.streams[0];
           }
         };
 
-        if (stream) {
-          stream.getTracks().forEach((track) => {
-            console.log('📹 Receiver adding local track:', track.kind);
-            pc.addTrack(track, stream);
-          });
-          if (localVideoRef.current) {
-            localVideoRef.current.srcObject = stream;
-          }
-        }
-
-        console.log('🔄 Setting remote description (offer)...');
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
-
-        console.log('🔄 Creating answer...');
         const answer = await pc.createAnswer();
-
-        console.log('🔄 Setting local description (answer)...');
         await pc.setLocalDescription(answer);
 
-        console.log('📤 Sending answer to caller, call_id:', call_id);
+        console.log('📤 Enviando answer');
         socket.emit('answer', { answer, call_id, meetingId });
-
-        startCollecting();
-        console.log('✅✅✅ RECEIVER FULLY READY ✅✅✅');
-      } catch (error) {
-        console.error('❌ ERROR in receiver:', error);
-        setCallStarted(false);
-        setIsCaller(false);
+      } catch (err) {
+        console.error('❌ Error en receiver:', err);
       }
     };
 
@@ -340,51 +226,38 @@ export default function WebrtcClient() {
       if (incomingMeeting && incomingMeeting !== meetingId) return;
 
       const pc = pcRef.current;
-      if (!pc) {
-        console.warn('No PeerConnection for answer');
-        return;
-      }
+      if (!pc) return;
 
-      console.log('📨 Received answer, current state:', pc.signalingState);
-
-      if (pc.signalingState !== 'have-local-offer') {
-        console.warn(
-          'Ignoring answer because signalingState is',
-          pc.signalingState
-        );
-        return;
-      }
+      console.log('📨 ANSWER recibida, state:', pc.signalingState);
 
       if (pc.remoteDescription) {
-        console.warn('Ignoring answer because remoteDescription already set');
+        console.log('RemoteDescription ya seteada, ignoro');
         return;
       }
 
       try {
         await pc.setRemoteDescription(new RTCSessionDescription(answer));
-        console.log('✅ Answer set successfully');
-      } catch (error) {
-        console.error('Error setting remote description:', error);
+        console.log('✅ Answer aplicada');
+      } catch (err) {
+        console.error('❌ Error aplicando answer:', err);
       }
     };
 
-    const handleIceCandidate = async ({
-      candidate,
-      meetingId: incomingMeeting,
-    }) => {
+    const handleIceCandidate = async ({ candidate, meetingId: incomingMeeting }) => {
       if (incomingMeeting && incomingMeeting !== meetingId) return;
-      if (!pcRef.current || !candidate) return;
+      const pc = pcRef.current;
+      if (!pc || !candidate) return;
 
       try {
-        await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
       } catch (err) {
-        console.log('ICE candidate add error (no grave):', err.message);
+        console.log('ICE add error (no grave):', err.message);
       }
     };
 
-    const handleEndCall = ({ meetingId: endedMeetingId }) => {
-      if (endedMeetingId !== meetingId) return;
-      console.log('📴 Received end-call signal');
+    const handleEndCall = ({ meetingId: ended }) => {
+      if (ended && ended !== meetingId) return;
+      console.log('📴 end-call recibido');
       cleanup();
       window.location.href = '/';
     };
@@ -394,98 +267,72 @@ export default function WebrtcClient() {
     socket.on('ice-candidate', handleIceCandidate);
     socket.on('end-call', handleEndCall);
 
-    // -------- DETERMINAR ROL Y ARRANCAR CALLER --------
+    // ========== ARRANCAR CALLER ==========
     const isCurrentUserCaller = !!otherUserId;
-    console.log('🎭 Role determination:', {
-      otherUserId: !!otherUserId,
-      isCurrentUserCaller,
-    });
+    console.log('🎭 Role:', isCurrentUserCaller ? 'CALLER' : 'RECEIVER');
+    setIsCaller(isCurrentUserCaller);
 
     let callTimer = null;
 
     if (isCurrentUserCaller) {
-      console.log('🎯 This user is the CALLER, starting in 3s...');
-      setIsCaller(true);
+      callTimer = setTimeout(async () => {
+        if (callerStartedRef.current) {
+          console.log('Caller ya iniciado, no repito');
+          return;
+        }
+        callerStartedRef.current = true;
 
-      const startCallInternal = async () => {
         try {
-          console.log('🚀 Starting call as caller');
+          console.log('🚀 Iniciando llamada como caller');
           setCallStarted(true);
 
           const callId = await startCall(otherUserId, usuarioHabilidadId);
           localStorage.setItem('call_id', callId);
 
-          console.log('🎯 Getting local media (caller)...');
           const stream = await getLocalMedia();
-          console.log(
-            '✅ Local media obtained, tracks:',
-            stream?.getTracks().length
-          );
-
-          localStreamRef.current = stream;
 
           const pc = new RTCPeerConnection({
-            iceServers: [
-              { urls: 'stun:stun.l.google.com:19302' },
-              { urls: 'stun:stun1.l.google.com:19302' },
-              { urls: 'stun:stun2.l.google.com:19302' },
-            ],
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
           });
-
           pcRef.current = pc;
 
-          pc.onicecandidate = (event) => {
-            if (event.candidate && socket.connected) {
-              console.log('📤 Sending ICE candidate from caller');
+          if (stream) {
+            stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+          }
+
+          pc.onicecandidate = (e) => {
+            if (e.candidate && socket.connected) {
+              console.log('📤 ICE (caller)');
               socket.emit('ice-candidate', {
-                candidate: event.candidate,
+                candidate: e.candidate,
                 meetingId,
               });
             }
           };
 
-          pc.ontrack = (event) => {
-            console.log('🎬 Caller received REMOTE track:', event.track.kind);
-            if (remoteVideoRef.current && event.streams[0]) {
-              remoteVideoRef.current.srcObject = event.streams[0];
-              console.log('✅ Remote video stream set');
+          pc.ontrack = (e) => {
+            console.log('🎬 Caller ontrack:', e.track.kind);
+            if (remoteVideoRef.current && e.streams[0]) {
+              remoteVideoRef.current.srcObject = e.streams[0];
             }
           };
 
-          if (stream) {
-            stream.getTracks().forEach((track) => {
-              console.log('📹 Caller adding local track:', track.kind);
-              pc.addTrack(track, stream);
-            });
-          }
-
-          console.log('🔄 Creating offer...');
           const offer = await pc.createOffer();
-
-          console.log('🔄 Setting local description (offer)...');
           await pc.setLocalDescription(offer);
 
-          console.log('📤 Sending offer to receiver, call_id:', callId);
+          console.log('📤 Enviando offer');
           socket.emit('offer', { offer, call_id: callId, meetingId });
-
-          startCollecting();
-          console.log('✅ Caller ready and waiting for answer');
-        } catch (error) {
-          console.error('❌ Error starting call:', error);
+        } catch (err) {
+          console.error('❌ Error iniciando llamada (caller):', err);
+          callerStartedRef.current = false;
           setCallStarted(false);
-          setIsCaller(false);
         }
-      };
-
-      callTimer = setTimeout(startCallInternal, 3000);
-    } else {
-      console.log('🎯 This user is the RECEIVER, waiting for offer...');
-      setIsCaller(false);
+      }, 3000);
     }
 
-    // Cleanup del effect (unmount)
+    // ========== CLEANUP EFFECT ==========
     return () => {
-      console.log('🧹 Cleanup socket effect (unmounting)');
+      console.log('🧹 Cleanup effect WebRTC');
       if (callTimer) clearTimeout(callTimer);
 
       if (socketRef.current) {
@@ -496,11 +343,14 @@ export default function WebrtcClient() {
         socketRef.current.disconnect();
         socketRef.current = null;
       }
+
+      callerStartedRef.current = false;
+      receiverStartedRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meetingId, otherUserId, usuarioHabilidadId]);
 
-  // ===================== RENDER =====================
+  // =============== RENDER ===============
   return (
     <div className="p-6 space-y-4">
       <h1 className="text-xl font-bold">
@@ -543,14 +393,12 @@ export default function WebrtcClient() {
             className="w-full border-2 border-blue-500 rounded-lg"
             style={{ minHeight: '300px', backgroundColor: '#000' }}
             onCanPlay={() => {
-              console.log('🎬 Remote video can play - attempting play()');
+              console.log('🎬 Remote video can play, intento play()');
               remoteVideoRef.current
                 ?.play()
-                .catch((e) =>
-                  console.log('⚠️ Auto-play blocked:', e.message)
-                );
+                .catch((e) => console.log('⚠️ Auto-play bloqueado:', e.message));
             }}
-            onPlaying={() => console.log('▶️ Remote video IS PLAYING!')}
+            onPlaying={() => console.log('▶️ Remote video PLAYING')}
           />
           {remoteVideoRef.current?.srcObject ? (
             <div className="text-green-600 text-sm mt-2">
