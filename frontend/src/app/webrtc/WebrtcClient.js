@@ -394,17 +394,25 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
     });
   
     socketRef.current.on('connect', () => {
-      console.log('✅ Socket conectado exitosamente');
+      console.log('✅ Socket connected successfully, ID:', socketRef.current.id);
     });
   
     socketRef.current.on('connect_error', (error) => {
       console.error('❌ Error de conexión socket:', error.message);
     });
   
+    // Para debug de eventos emitidos
+    const originalEmit = socketRef.current.emit;
+    socketRef.current.emit = function(event, ...args) {
+    console.log(`📤 Emitting "${event}":`, args[0] ? 'data present' : 'no data');
+    return originalEmit.apply(this, [event, ...args]);
+
     // --- HANDLERS DEFINIDOS DENTRO para no depender de useCallbacks ---
     
     // Handler de offer
     const handleOfferInternal = async ({ offer, call_id }) => {
+      console.log('📞 OFFER RECEIVED - Starting receiver process');
+
       if (callStarted || otherUserId) {
         console.log('Ignoring offer: already call started or we are the caller');
         return;
@@ -416,8 +424,10 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
       localStorage.setItem('call_id', call_id);
   
       try {
+        console.log('🎯 Getting local media...');
         const stream = await getLocalMedia();
-        
+        console.log('✅ Local media obtained, tracks:', stream?.getTracks().length);
+
         pcRef.current = new RTCPeerConnection({
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
@@ -425,36 +435,59 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
             { urls: 'stun:stun2.l.google.com:19302' },
           ],
         });
+
+        console.log('✅ PeerConnection created');
   
         pcRef.current.onicecandidate = (event) => {
           if (event.candidate) {
+            console.log('📤 Sending ICE candidate from receiver');
             socketRef.current.emit('ice-candidate', event.candidate);
           }
         };
   
         pcRef.current.ontrack = (event) => {
+          console.log('🎬 Receiver received remote track:', event.track.kind);
           if (remoteVideoRef.current && event.streams[0]) {
             remoteVideoRef.current.srcObject = event.streams[0];
+            console.log('✅ Receiver remote video stream set');
           }
         };
   
         if (stream) {
           stream.getTracks().forEach(track => {
+            console.log('📹 Receiver adding local track:', track.kind);
             pcRef.current.addTrack(track, stream);
           });
+
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = stream;
+          }
         }
   
+        console.log('🔄 Setting remote description (offer)...');
         await pcRef.current.setRemoteDescription(new RTCSessionDescription(offer));
+        console.log('✅ Remote description set');
+
+        console.log('🔄 Creating answer...');
         const answer = await pcRef.current.createAnswer();
+
+        console.log('🔄 Setting local description (answer)...');
         await pcRef.current.setLocalDescription(answer);
-        
-        socketRef.current.emit('answer', { answer, call_id });
+        console.log('✅ Local description set');
+    
+        console.log('📤 Sending answer to caller, call_id:', call_id);
+
+        if (socketRef.current && socketRef.current.connected) {
+          socketRef.current.emit('answer', { answer, call_id });
+          console.log('✅ Answer sent successfully');
+        } else {
+          console.error('❌ Socket not connected for answer');
+        }
         startCollecting();
-        
-        console.log('✅ Receiver ready');
+        console.log('✅✅✅ RECEIVER FULLY READY ✅✅✅');
   
       } catch (error) {
-        console.error('❌ Error handling offer:', error);
+        console.error('❌❌❌ ERROR in receiver:', error);
         setCallStarted(false);
         setIsCaller(false);
       }
@@ -559,30 +592,56 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
   
           pcRef.current.onicecandidate = (event) => {
             if (event.candidate) {
+              console.log('📤 Sending ICE candidate from caller');
               socketRef.current.emit('ice-candidate', event.candidate);
             }
           };
-  
+      
           pcRef.current.ontrack = (event) => {
+            console.log('🎬 Caller received remote track:', event.track.kind);
             if (remoteVideoRef.current && event.streams[0]) {
               remoteVideoRef.current.srcObject = event.streams[0];
+              console.log('✅ Caller remote video stream set');
             }
           };
-  
+      
           if (stream) {
             stream.getTracks().forEach(track => {
+              console.log('📹 Caller adding local track:', track.kind);
               pcRef.current.addTrack(track, stream);
             });
+            
+            if (localVideoRef.current) {
+              localVideoRef.current.srcObject = stream;
+            }
           }
-  
+      
+          console.log('🔄 Creating offer...');
           const offer = await pcRef.current.createOffer();
+          
+          console.log('🔄 Setting local description...');
           await pcRef.current.setLocalDescription(offer);
           
-          socketRef.current.emit('offer', { offer, call_id: callId });
-          startCollecting();
+          console.log('📤 Sending offer to receiver, call_id:', callId);
           
-          console.log('✅ Caller ready');
-  
+          // 🔴 VERIFICAR que socket esté conectado antes de emitir
+          if (socketRef.current && socketRef.current.connected) {
+            socketRef.current.emit('offer', { offer, call_id: callId });
+            console.log('✅ Offer sent successfully');
+          } else {
+            console.error('❌ Socket not connected, cannot send offer');
+            // Reintentar en 1 segundo
+            setTimeout(() => {
+              if (socketRef.current?.connected) {
+                socketRef.current.emit('offer', { offer, call_id: callId });
+                console.log('✅ Offer sent (retry)');
+              }
+            }, 1000);
+          }
+          
+          startCollecting();
+          console.log('✅ Caller ready and waiting for answer');
+      
         } catch (error) {
           console.error('❌ Error starting call:', error);
           setCallStarted(false);
