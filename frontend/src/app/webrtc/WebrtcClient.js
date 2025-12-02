@@ -336,24 +336,44 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
     if (answer.sdp) {
       let modifiedSdp = answer.sdp;
       
-      // Agregar codec H264 si no está
-      if (!modifiedSdp.includes('H264/90000')) {
+      // Solo modificar si el offer ya incluyó H264
+      if (modifiedSdp.includes('H264/90000')) {
+        console.log('✅ Answer already has H264 support');
+      } else {
+        // Buscar payload types disponibles
+        const usedPayloadTypes = new Set();
+        const payloadTypeRegex = /a=rtpmap:(\d+)/g;
+        let match;
+        
+        while ((match = payloadTypeRegex.exec(modifiedSdp)) !== null) {
+          usedPayloadTypes.add(parseInt(match[1]));
+        }
+        
+        // Encontrar payload type disponible
+        let h264PayloadType = 97;
+        while (usedPayloadTypes.has(h264PayloadType)) {
+          h264PayloadType++;
+        }
+        
+        console.log(`🎯 Using payload type ${h264PayloadType} for H264 in answer`);
+        
+        // Agregar H264
         modifiedSdp = modifiedSdp.replace(
           /a=rtpmap:96 VP8\/90000\r\n/,
-          'a=rtpmap:96 VP8/90000\r\n' +
-          'a=rtpmap:97 H264/90000\r\n' +
-          'a=fmtp:97 profile-level-id=42e01f;packetization-mode=1\r\n'
+          `a=rtpmap:96 VP8/90000\r\n` +
+          `a=rtpmap:${h264PayloadType} H264/90000\r\n` +
+          `a=fmtp:${h264PayloadType} profile-level-id=42e01f;packetization-mode=1\r\n`
         );
         
         // Modificar línea m=video
-        modifiedSdp = modifiedSdp.replace(
-          /m=video (\d+) UDP\/TLS\/RTP\/SAVPF 96/,
-          'm=video $1 UDP/TLS/RTP/SAVPF 96 97'
-        );
+        if (modifiedSdp.includes(`m=video`)) {
+          modifiedSdp = modifiedSdp.replace(
+            /(m=video \d+ UDP\/TLS\/RTP\/SAVPF )(\d+(?: \d+)*)/,
+            `$1$2 ${h264PayloadType}`
+          );
+        }
         
         console.log('✅ Answer SDP modified with H264 support');
-      } else {
-        console.log('✅ Answer already has H264 support');
       }
       
       answer.sdp = modifiedSdp;
@@ -756,30 +776,43 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
           if (offer.sdp) {
             let modifiedSdp = offer.sdp;
             
-            // 1. Agregar codec H264
+            // Buscar payload types disponibles (no usar 97 si ya está en uso)
+            const usedPayloadTypes = new Set();
+            const payloadTypeRegex = /a=rtpmap:(\d+)/g;
+            let match;
+            
+            while ((match = payloadTypeRegex.exec(modifiedSdp)) !== null) {
+              usedPayloadTypes.add(parseInt(match[1]));
+            }
+            
+            // Encontrar un payload type disponible (empezar desde 98)
+            let h264PayloadType = 97;
+            while (usedPayloadTypes.has(h264PayloadType)) {
+              h264PayloadType++;
+            }
+            
+            console.log(`🎯 Using payload type ${h264PayloadType} for H264`);
+            
+            // 1. Agregar codec H264 con payload type único
             modifiedSdp = modifiedSdp.replace(
               /a=rtpmap:96 VP8\/90000\r\n/,
-              'a=rtpmap:96 VP8/90000\r\n' +
-              'a=rtpmap:97 H264/90000\r\n' +
-              'a=fmtp:97 profile-level-id=42e01f;packetization-mode=1\r\n' +
-              'a=rtcp-fb:97 goog-remb\r\n' +
-              'a=rtcp-fb:97 transport-cc\r\n' +
-              'a=rtcp-fb:97 ccm fir\r\n' +
-              'a=rtcp-fb:97 nack\r\n' +
-              'a=rtcp-fb:97 nack pli\r\n'
+              `a=rtpmap:96 VP8/90000\r\n` +
+              `a=rtpmap:${h264PayloadType} H264/90000\r\n` +
+              `a=fmtp:${h264PayloadType} profile-level-id=42e01f;packetization-mode=1\r\n` +
+              `a=rtcp-fb:${h264PayloadType} goog-remb\r\n` +
+              `a=rtcp-fb:${h264PayloadType} transport-cc\r\n` +
+              `a=rtcp-fb:${h264PayloadType} ccm fir\r\n` +
+              `a=rtcp-fb:${h264PayloadType} nack\r\n` +
+              `a=rtcp-fb:${h264PayloadType} nack pli\r\n`
             );
             
             // 2. Modificar línea m=video para incluir H264
-            modifiedSdp = modifiedSdp.replace(
-              /m=video (\d+) UDP\/TLS\/RTP\/SAVPF 96/,
-              'm=video $1 UDP/TLS/RTP/SAVPF 96 97'
-            );
-            
-            // 3. Priorizar H264 sobre VP8
-            modifiedSdp = modifiedSdp.replace(
-              /a=fmtp:96 /,
-              'a=fmtp:97 profile-level-id=42e01f;packetization-mode=1\r\na=fmtp:96 '
-            );
+            if (modifiedSdp.includes(`m=video`)) {
+              modifiedSdp = modifiedSdp.replace(
+                /(m=video \d+ UDP\/TLS\/RTP\/SAVPF )(\d+(?: \d+)*)/,
+                `$1$2 ${h264PayloadType}`
+              );
+            }
             
             offer.sdp = modifiedSdp;
             console.log('✅ Offer SDP modified with H264 support');
