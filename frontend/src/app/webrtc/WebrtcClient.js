@@ -378,13 +378,13 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
   useEffect(() => {
     if (!meetingId) return;
   
-    // 👇 Evita conexiones duplicadas
+    // 👇 Evita conexiones duplicadas (IMPORTANTE)
     if (socketRef.current) {
       console.log('⚠️ Socket ya inicializado, no creo otro');
       return;
     }
   
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'https://skillswap-signaling.onrender.com';
   
     console.log('🔌 Conectando a socket:', socketUrl);
   
@@ -401,10 +401,67 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
       console.error('❌ Error de conexión socket:', error.message);
     });
   
-    // --- resto de listeners ---
-    socketRef.current.on('offer', handleOffer);
+    // --- HANDLERS DEFINIDOS DENTRO para no depender de useCallbacks ---
+    
+    // Handler de offer
+    const handleOfferInternal = async ({ offer, call_id }) => {
+      if (callStarted || otherUserId) {
+        console.log('Ignoring offer: already call started or we are the caller');
+        return;
+      }
+      
+      console.log('📞 Received offer, acting as receiver');
+      setCallStarted(true);
+      setIsCaller(false);
+      localStorage.setItem('call_id', call_id);
   
-    socketRef.current.on('answer', async ({ answer }) => {
+      try {
+        const stream = await getLocalMedia();
+        
+        pcRef.current = new RTCPeerConnection({
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+          ],
+        });
+  
+        pcRef.current.onicecandidate = (event) => {
+          if (event.candidate) {
+            socketRef.current.emit('ice-candidate', event.candidate);
+          }
+        };
+  
+        pcRef.current.ontrack = (event) => {
+          if (remoteVideoRef.current && event.streams[0]) {
+            remoteVideoRef.current.srcObject = event.streams[0];
+          }
+        };
+  
+        if (stream) {
+          stream.getTracks().forEach(track => {
+            pcRef.current.addTrack(track, stream);
+          });
+        }
+  
+        await pcRef.current.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await pcRef.current.createAnswer();
+        await pcRef.current.setLocalDescription(answer);
+        
+        socketRef.current.emit('answer', { answer, call_id });
+        startCollecting();
+        
+        console.log('✅ Receiver ready');
+  
+      } catch (error) {
+        console.error('❌ Error handling offer:', error);
+        setCallStarted(false);
+        setIsCaller(false);
+      }
+    };
+  
+    // Handler de answer
+    const handleAnswerInternal = async ({ answer }) => {
       const pc = pcRef.current;
       if (!pc) {
         console.warn('No PeerConnection for answer');
@@ -429,28 +486,45 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
       } catch (error) {
         console.error('Error setting remote description:', error);
       }
-    });
+    };
   
-    socketRef.current.on('ice-candidate', async (candidate) => {
+    // Handler de ICE
+    const handleIceCandidateInternal = async (candidate) => {
       if (!pcRef.current) {
-        console.warn('ICE candidate ignored: no PeerConnection');
-        return;
+        return; // Silencioso
       }
   
       try {
         await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
-        console.log('✅ ICE candidate added');
       } catch (err) {
-        console.log('🕒 ICE candidate not added (normal during negotiation):', err.message);
+        // Silencioso
       }
-    });
+    };
   
-    socketRef.current.on('end-call', ({ meetingId: endedMeetingId }) => {
+    // Handler de end-call
+    const handleEndCallInternal = ({ meetingId: endedMeetingId }) => {
       if (endedMeetingId !== meetingId) return;
-      endCall();
-    });
+      
+      // Usar la función endCall directamente
+      if (socketRef.current) socketRef.current.disconnect();
+      if (pcRef.current) pcRef.current.close();
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+      stopCollecting();
+      setCallStarted(false);
+      setIsCaller(false);
+      window.location.href = '/';
+    };
   
-    const isCurrentUserCaller = !!otherUserId; // por ahora simple
+    // Asignar handlers
+    socketRef.current.on('offer', handleOfferInternal);
+    socketRef.current.on('answer', handleAnswerInternal);
+    socketRef.current.on('ice-candidate', handleIceCandidateInternal);
+    socketRef.current.on('end-call', handleEndCallInternal);
+  
+    // Determinar rol
+    const isCurrentUserCaller = !!otherUserId;
     console.log('🎭 Role determination:', {
       otherUserId: !!otherUserId,
       isCurrentUserCaller,
@@ -461,26 +535,79 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
     if (isCurrentUserCaller) {
       console.log('🎯 This user is the CALLER, starting in 3s...');
       setIsCaller(true);
-      callTimer = setTimeout(() => {
-        startCallAsCaller();
-      }, 3000);
+      
+      // Función interna para iniciar llamada
+      const startCallInternal = async () => {
+        if (callStarted) return;
+        
+        try {
+          console.log('🚀 Starting call as caller');
+          setCallStarted(true);
+  
+          const callId = await startCall(otherUserId, usuarioHabilidadId);
+          localStorage.setItem('call_id', callId);
+  
+          const stream = await getLocalMedia();
+          
+          pcRef.current = new RTCPeerConnection({
+            iceServers: [
+              { urls: 'stun:stun.l.google.com:19302' },
+              { urls: 'stun:stun1.l.google.com:19302' },
+              { urls: 'stun:stun2.l.google.com:19302' },
+            ],
+          });
+  
+          pcRef.current.onicecandidate = (event) => {
+            if (event.candidate) {
+              socketRef.current.emit('ice-candidate', event.candidate);
+            }
+          };
+  
+          pcRef.current.ontrack = (event) => {
+            if (remoteVideoRef.current && event.streams[0]) {
+              remoteVideoRef.current.srcObject = event.streams[0];
+            }
+          };
+  
+          if (stream) {
+            stream.getTracks().forEach(track => {
+              pcRef.current.addTrack(track, stream);
+            });
+          }
+  
+          const offer = await pcRef.current.createOffer();
+          await pcRef.current.setLocalDescription(offer);
+          
+          socketRef.current.emit('offer', { offer, call_id: callId });
+          startCollecting();
+          
+          console.log('✅ Caller ready');
+  
+        } catch (error) {
+          console.error('❌ Error starting call:', error);
+          setCallStarted(false);
+          setIsCaller(false);
+        }
+      };
+  
+      callTimer = setTimeout(startCallInternal, 3000);
     } else {
       console.log('🎯 This user is the RECEIVER, waiting for offer...');
       setIsCaller(false);
     }
   
-    // 🧹 Cleanup ÚNICO
+    // 🧹 Cleanup ÚNICO - solo al desmontar
     return () => {
-      console.log('🧹 Cleanup socket effect');
-  
+      console.log('🧹 Cleanup socket effect (unmounting)');
+      
       if (callTimer) clearTimeout(callTimer);
-  
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
+      
+      // NO limpiar socketRef.current aquí si queremos reusarlo
+      // Solo limpiar si realmente el componente se desmonta
     };
-  }, [meetingId, otherUserId, startCallAsCaller, handleOffer, endCall]);
+  
+  // 🔴 DEPENDENCIAS MÍNIMAS: solo meetingId
+  }, [meetingId]);
 
   return (
     <div className="p-6 space-y-4">
