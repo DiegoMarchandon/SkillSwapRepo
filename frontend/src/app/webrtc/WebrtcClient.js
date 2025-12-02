@@ -71,122 +71,90 @@ export default function WebrtcClient() {
   }, []);
 
   // ===================== MEDIA LOCAL =====================
-  const getLocalMedia = useCallback(
-    async (retryCount = 0) => {
-      try {
-        // Limpiar stream anterior si existe
-        if (localStreamRef.current) {
-          localStreamRef.current.getTracks().forEach((track) => track.stop());
-        }
-
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter((d) => d.kind === 'videoinput');
-
-        console.log(
-          '📹 Dispositivos de video disponibles:',
-          videoDevices.map((d) => d.label)
-        );
-
-        let constraints = {
-          video: {
-            width: { ideal: 640 },
-            height: { ideal: 480 },
-          },
-          audio: true,
-        };
-
-        // Caller vs receiver intentan cámaras distintas si hay varias
-        if (videoDevices.length > 1) {
-          if (isCaller) {
-            const frontCamera = videoDevices.find(
-              (d) =>
-                d.label.toLowerCase().includes('front') ||
-                d.label.toLowerCase().includes('integrated') ||
-                d.label.toLowerCase().includes('face')
-            );
-            if (frontCamera) {
-              constraints.video.deviceId = { exact: frontCamera.deviceId };
-            }
-          } else {
-            const backCamera = videoDevices.find(
-              (d) =>
-                d.label.toLowerCase().includes('back') ||
-                d.label.toLowerCase().includes('external') ||
-                (!d.label.toLowerCase().includes('front') &&
-                  !d.label.toLowerCase().includes('integrated') &&
-                  !d.label.toLowerCase().includes('face'))
-            );
-            if (backCamera) {
-              constraints.video.deviceId = { exact: backCamera.deviceId };
-            }
-          }
-        }
-
-        console.log('🎯 Intentando con constraints:', constraints);
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-
-        localStreamRef.current = stream;
-
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
-
-        setMediaError(null);
-        return stream;
-      } catch (error) {
-        console.error(
-          `❌ Error obteniendo media (intento ${retryCount + 1}):`,
-          error
-        );
-
-        // Fallback 1: solo audio
-        if (retryCount === 0) {
-          console.log('🔄 Intentando fallback: solo audio');
-          try {
-            const audioOnlyStream = await navigator.mediaDevices.getUserMedia({
-              video: false,
-              audio: true,
-            });
-
-            localStreamRef.current = audioOnlyStream;
-            if (localVideoRef.current) {
-              localVideoRef.current.srcObject = audioOnlyStream;
-            }
-
-            setMediaError('Solo audio disponible - cámara en uso');
-            return audioOnlyStream;
-          } catch (audioError) {
-            console.error('❌ Fallback de audio también falló:', audioError);
-          }
-        }
-
-        // Fallback 2: video genérico
-        if (retryCount === 1) {
-          console.log('🔄 Intentando con video genérico');
-          try {
-            const genericStream = await navigator.mediaDevices.getUserMedia({
-              video: true,
-              audio: true,
-            });
-
-            localStreamRef.current = genericStream;
-            if (localVideoRef.current) {
-              localVideoRef.current.srcObject = genericStream;
-            }
-
-            setMediaError(null);
-            return genericStream;
-          } catch (genericError) {
-            console.error('❌ Video genérico también falló:', genericError);
-          }
-        }
-
-        setMediaError(`No se pudo acceder a la cámara: ${error.message}`);
-        throw error;
+  const getLocalMedia = useCallback(async () => {
+    try {
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((track) => track.stop());
       }
-    },
-    [isCaller]
-  );
+
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter((d) => d.kind === 'videoinput');
+
+      console.log(
+        '📹 Dispositivos de video disponibles:',
+        videoDevices.map((d) => d.label)
+      );
+
+      let constraints = {
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+        },
+        audio: true,
+      };
+
+      if (videoDevices.length > 1) {
+        if (isCaller) {
+          const frontCamera = videoDevices.find(
+            (d) =>
+              d.label.toLowerCase().includes('front') ||
+              d.label.toLowerCase().includes('integrated') ||
+              d.label.toLowerCase().includes('face')
+          );
+          if (frontCamera) {
+            constraints.video.deviceId = { exact: frontCamera.deviceId };
+          }
+        } else {
+          const backCamera = videoDevices.find(
+            (d) =>
+              d.label.toLowerCase().includes('back') ||
+              d.label.toLowerCase().includes('external') ||
+              (!d.label.toLowerCase().includes('front') &&
+                !d.label.toLowerCase().includes('integrated') &&
+                !d.label.toLowerCase().includes('face'))
+          );
+          if (backCamera) {
+            constraints.video.deviceId = { exact: backCamera.deviceId };
+          }
+        }
+      }
+
+      console.log('🎯 Intentando con constraints:', constraints);
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+      localStreamRef.current = stream;
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+
+      setMediaError(null);
+      return stream;
+    } catch (error) {
+      console.error('❌ Error obteniendo media:', error);
+
+      // Fallback: solo audio
+      try {
+        console.log('🔄 Intentando fallback: solo audio');
+        const audioOnlyStream = await navigator.mediaDevices.getUserMedia({
+          video: false,
+          audio: true,
+        });
+
+        localStreamRef.current = audioOnlyStream;
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = audioOnlyStream;
+        }
+
+        setMediaError('Solo audio disponible - cámara en uso o bloqueada');
+        return audioOnlyStream;
+      } catch (audioError) {
+        console.error('❌ Fallback de audio también falló:', audioError);
+      }
+
+      setMediaError(`No se pudo acceder a la cámara: ${error.message}`);
+      throw error;
+    }
+  }, [isCaller]);
 
   // ===================== CLEANUP GENERAL =====================
   const cleanup = useCallback(() => {
@@ -217,34 +185,25 @@ export default function WebrtcClient() {
   }, [stopCollecting]);
 
   // ===================== TERMINAR LLAMADA (BOTÓN) =====================
-  const endCall = useCallback(
-    async () => {
-      try {
-        await api.post(`/meeting/${meetingId}/end`);
-        socketRef.current?.emit('end-call', { meetingId });
-      } catch (error) {
-        console.error('Error ending meeting:', error);
-      }
+  const endCall = useCallback(async () => {
+    try {
+      await api.post(`/meeting/${meetingId}/end`);
+      socketRef.current?.emit('end-call', { meetingId });
+    } catch (error) {
+      console.error('Error ending meeting:', error);
+    }
 
-      cleanup();
-      window.location.href = '/';
-    },
-    [meetingId, cleanup]
-  );
+    cleanup();
+    window.location.href = '/';
+  }, [meetingId, cleanup]);
 
   // ===================== EFFECT PRINCIPAL =====================
   useEffect(() => {
     if (!meetingId) return;
 
-    // Evitar crear varios sockets
-    if (socketRef.current) {
-      console.log('⚠️ Socket ya inicializado, no creo otro');
-      return;
-    }
-
     const socketUrl =
       process.env.NEXT_PUBLIC_SOCKET_URL ||
-      'https://skillswap-signaling.onrender.com';
+      'https://skillswap-signaling-production.up.railway.app';
 
     console.log('🔌 Conectando a socket:', socketUrl);
 
@@ -265,8 +224,7 @@ export default function WebrtcClient() {
 
     socket.on('connect', () => {
       console.log('✅ Socket connected successfully, ID:', socket.id);
-      // 🔥 Unirse a la sala de esta meeting
-      socketRef.current?.emit('join', { meetingId });
+      socket.emit('join', { meetingId });
     });
 
     socket.on('connect_error', (error) => {
@@ -297,15 +255,12 @@ export default function WebrtcClient() {
 
     // -------- HANDLERS DE SEÑALIZACIÓN --------
     const handleOffer = async ({ offer, call_id, meetingId: incomingMeeting }) => {
-      // Si viniera algo de otra sala por error, lo ignoramos
       if (incomingMeeting && incomingMeeting !== meetingId) return;
 
       console.log('📞 OFFER RECEIVED - Starting receiver process');
 
       if (callStarted || otherUserId) {
-        console.log(
-          'Ignoring offer: already call started o somos el caller en esta instancia'
-        );
+        console.log('Ignoring offer: ya hay llamada iniciada o somos caller');
         return;
       }
 
@@ -452,8 +407,6 @@ export default function WebrtcClient() {
       setIsCaller(true);
 
       const startCallInternal = async () => {
-        if (callStarted) return;
-
         try {
           console.log('🚀 Starting call as caller');
           setCallStarted(true);
@@ -569,12 +522,15 @@ export default function WebrtcClient() {
       socket.off('answer', handleAnswer);
       socket.off('ice-candidate', handleIceCandidate);
       socket.off('end-call', handleEndCall);
+      socket.disconnect();
+      if (socketRef.current === socket) {
+        socketRef.current = null;
+      }
     };
   }, [
     meetingId,
     otherUserId,
     usuarioHabilidadId,
-    callStarted,
     startCall,
     getLocalMedia,
     startCollecting,
