@@ -406,7 +406,7 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
     socketRef.current.emit = function(event, ...args) {
     console.log(`📤 Emitting "${event}":`, args[0] ? 'data present' : 'no data');
     return originalEmit.apply(this, [event, ...args]);
-
+    };
     // --- HANDLERS DEFINIDOS DENTRO para no depender de useCallbacks ---
     
     // Handler de offer
