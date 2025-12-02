@@ -189,14 +189,9 @@ export default function WebrtcClient() {
       console.log('🚀 Starting call as caller - User is caller:', !!otherUserId);
       setCallStarted(true);
       setIsCaller(true);
-  
-      // 🔴 TEMPORAL: ID de test en lugar de llamar al backend
-      const testCallId = `test-${Date.now()}`;
-      localStorage.setItem('call_id', testCallId);
-      console.log(`✅ Using test call ID: ${testCallId}`);
       
-      // 🔴 TEMPORAL: ID de test en lugar de llamar al backend
-      // const callId = await startCall(otherUserId, usuarioHabilidadId);
+      // Crear llamada en backend
+      const callId = await startCall(otherUserId, usuarioHabilidadId);
       localStorage.setItem('call_id', callId);
   
       // Obtener media local con reintentos
