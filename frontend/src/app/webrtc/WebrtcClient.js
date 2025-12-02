@@ -774,15 +774,12 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
           {mediaError}
         </div>
       )}
-
-      {/* Agregar este nuevo elemento */}
-      <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded">
-        {isCaller ? 
-          '💚 Eres el iniciador de la llamada (Caller)' : 
-          '💙 Esperando llamada entrante (Receiver)'}
-        {callStarted && ' - ✅ Conectado'}
+  
+      {/* 🔴 AGREGAR ESTE ESTADO DE CONEXIÓN */}
+      <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+        ✅ Conexión WebRTC establecida - {callStarted ? 'Conectado' : 'Conectando...'}
       </div>
-
+  
       <div className="flex gap-4">
         <div className="w-1/2">
           <h3 className="text-sm font-medium mb-2">Tu cámara (local)</h3>
@@ -791,7 +788,8 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
             autoPlay 
             playsInline 
             muted 
-            className="w-full border rounded"
+            className="w-full border-2 border-green-500 rounded-lg"
+            style={{ minHeight: '300px', backgroundColor: '#f0f0f0' }}
           />
           {!localVideoRef.current?.srcObject && (
             <div className="text-gray-500 text-sm mt-2">
@@ -805,8 +803,22 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
             ref={remoteVideoRef} 
             autoPlay 
             playsInline 
-            className="w-full border rounded"
+            className="w-full border-2 border-blue-500 rounded-lg"
+            style={{ minHeight: '300px', backgroundColor: '#f0f0f0' }}
+            onLoadedMetadata={() => console.log('✅ Remote video metadata loaded')}
+            onCanPlay={() => console.log('✅ Remote video can play')}
+            onPlay={() => console.log('🎬 Remote video playing')}
           />
+          {/* 🔴 AGREGAR FEEDBACK VISUAL */}
+          {remoteVideoRef.current?.srcObject ? (
+            <div className="text-green-600 text-sm mt-2">
+              ✅ Recibiendo video remoto
+            </div>
+          ) : (
+            <div className="text-gray-500 text-sm mt-2">
+              Esperando video remoto...
+            </div>
+          )}
         </div>
       </div>
       
@@ -818,8 +830,8 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
           Terminar llamada
         </button>
         <span className="text-sm text-gray-600">
-          Estado: {callStarted ? 'Conectado' : 'Conectando...'} | 
-          Rol: {isCaller ? 'Caller' : 'Receiver'}
+          Estado: {callStarted ? '✅ Conectado' : '⏳ Conectando...'} | 
+          Rol: {isCaller ? '🎤 Caller' : '🎧 Receiver'}
         </span>
       </div>
     </div>
