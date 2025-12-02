@@ -815,10 +815,20 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
             autoPlay 
             playsInline 
             className="w-full border-2 border-blue-500 rounded-lg"
-            style={{ minHeight: '300px', backgroundColor: '#f0f0f0' }}
-            onLoadedMetadata={() => console.log('✅ Remote video metadata loaded')}
-            onCanPlay={() => console.log('✅ Remote video can play')}
-            onPlay={() => console.log('🎬 Remote video playing')}
+            style={{ minHeight: '300px', backgroundColor: '#000' }}
+            onLoadStart={() => console.log('📥 Remote video load start')}
+            onLoadedData={() => console.log('📊 Remote video loaded data')}
+            onLoadedMetadata={() => console.log('📈 Remote video metadata loaded')}
+            onCanPlay={() => {
+              console.log('🎬 Remote video can play - attempting play()');
+              remoteVideoRef.current?.play().catch(e => 
+                console.log('⚠️ Auto-play blocked:', e.message)
+              );
+            }}
+            onPlaying={() => console.log('▶️ Remote video IS PLAYING!')}
+            onWaiting={() => console.log('⏸️ Remote video waiting/buffering')}
+            onStalled={() => console.log('🛑 Remote video stalled')}
+            onError={(e) => console.log('❌ Remote video error:', e.target.error)}
           />
           {/* 🔴 AGREGAR FEEDBACK VISUAL */}
           {remoteVideoRef.current?.srcObject ? (
