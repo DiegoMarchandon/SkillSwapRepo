@@ -332,6 +332,33 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
     console.log('🔄 Creating answer');
     const answer = await pcRef.current.createAnswer();
     
+    console.log('🔧 Modifying answer SDP for better compatibility...');
+    if (answer.sdp) {
+      let modifiedSdp = answer.sdp;
+      
+      // Agregar codec H264 si no está
+      if (!modifiedSdp.includes('H264/90000')) {
+        modifiedSdp = modifiedSdp.replace(
+          /a=rtpmap:96 VP8\/90000\r\n/,
+          'a=rtpmap:96 VP8/90000\r\n' +
+          'a=rtpmap:97 H264/90000\r\n' +
+          'a=fmtp:97 profile-level-id=42e01f;packetization-mode=1\r\n'
+        );
+        
+        // Modificar línea m=video
+        modifiedSdp = modifiedSdp.replace(
+          /m=video (\d+) UDP\/TLS\/RTP\/SAVPF 96/,
+          'm=video $1 UDP/TLS/RTP/SAVPF 96 97'
+        );
+        
+        console.log('✅ Answer SDP modified with H264 support');
+      } else {
+        console.log('✅ Answer already has H264 support');
+      }
+      
+      answer.sdp = modifiedSdp;
+    }
+
     console.log('🔄 Setting local description (answer)');
     await pcRef.current.setLocalDescription(answer);
     
@@ -725,6 +752,39 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
           console.log('🔄 Creating offer...');
           const offer = await pcRef.current.createOffer();
           
+          console.log('🔧 Modifying offer SDP for better compatibility...');
+          if (offer.sdp) {
+            let modifiedSdp = offer.sdp;
+            
+            // 1. Agregar codec H264
+            modifiedSdp = modifiedSdp.replace(
+              /a=rtpmap:96 VP8\/90000\r\n/,
+              'a=rtpmap:96 VP8/90000\r\n' +
+              'a=rtpmap:97 H264/90000\r\n' +
+              'a=fmtp:97 profile-level-id=42e01f;packetization-mode=1\r\n' +
+              'a=rtcp-fb:97 goog-remb\r\n' +
+              'a=rtcp-fb:97 transport-cc\r\n' +
+              'a=rtcp-fb:97 ccm fir\r\n' +
+              'a=rtcp-fb:97 nack\r\n' +
+              'a=rtcp-fb:97 nack pli\r\n'
+            );
+            
+            // 2. Modificar línea m=video para incluir H264
+            modifiedSdp = modifiedSdp.replace(
+              /m=video (\d+) UDP\/TLS\/RTP\/SAVPF 96/,
+              'm=video $1 UDP/TLS/RTP/SAVPF 96 97'
+            );
+            
+            // 3. Priorizar H264 sobre VP8
+            modifiedSdp = modifiedSdp.replace(
+              /a=fmtp:96 /,
+              'a=fmtp:97 profile-level-id=42e01f;packetization-mode=1\r\na=fmtp:96 '
+            );
+            
+            offer.sdp = modifiedSdp;
+            console.log('✅ Offer SDP modified with H264 support');
+          }
+
           console.log('🔄 Setting local description...');
           await pcRef.current.setLocalDescription(offer);
           
