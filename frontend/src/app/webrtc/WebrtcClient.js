@@ -440,6 +440,33 @@ useEffect(() => {
       console.warn('ICE candidate ignored: no PeerConnection');
       return;
     }
+
+    // Esperar a tener remoteDescription para ICE candidates
+  if (!pcRef.current.remoteDescription) {
+    console.log('⏳ ICE candidate queued - waiting for remote description');
+    // Guardar en cola
+    if (!pcRef.current.queuedCandidates) {
+      pcRef.current.queuedCandidates = [];
+    }
+    pcRef.current.queuedCandidates.push(candidate);
+    
+    // Procesar cola después de establecer remoteDescription
+    setTimeout(() => {
+      if (pcRef.current?.remoteDescription && pcRef.current.queuedCandidates) {
+        console.log(`📨 Processing ${pcRef.current.queuedCandidates.length} queued ICE candidates`);
+        pcRef.current.queuedCandidates.forEach(async (queuedCandidate) => {
+          try {
+            await pcRef.current.addIceCandidate(new RTCIceCandidate(queuedCandidate));
+          } catch (err) {
+            console.warn('Failed to add queued ICE candidate:', err);
+          }
+        });
+        pcRef.current.queuedCandidates = [];
+      }
+    }, 3000);
+    
+    return;
+  }
     
     try {
       await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
