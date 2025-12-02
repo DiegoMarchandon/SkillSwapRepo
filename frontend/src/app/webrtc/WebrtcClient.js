@@ -302,7 +302,18 @@ const handleOffer = useCallback(async ({ offer, call_id }) => {
       console.log('🎬 Received remote track:', event.track.kind);
       if (remoteVideoRef.current && event.streams[0]) {
         remoteVideoRef.current.srcObject = event.streams[0];
-        console.log('✅ Remote video stream set successfully');
+        console.log('✅ Remote stream assigned to video element');
+        
+        // 🔴 FORZAR REPRODUCCIÓN
+        setTimeout(() => {
+          if (remoteVideoRef.current && remoteVideoRef.current.paused) {
+            console.log('▶️ Attempting to play remote video...');
+            remoteVideoRef.current.play().catch(err => {
+              console.log('⚠️ Auto-play prevented:', err.message);
+              // Mostrar botón de play manual
+            });
+          }
+        }, 500);
       }
     };
 
