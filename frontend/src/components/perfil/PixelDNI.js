@@ -74,7 +74,7 @@ export default function PixelDNI({
               //   (u?.avatar_path && `${process.env.NEXT_PUBLIC_API_URL}${u.avatar_path}`) ||
               //   '/default-avatar.png'
               // }
-              src={`https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${user.avatar_seed}&size=128`}
+              src={`https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${u?.avatar_seed}&size=128`}
               alt={`Avatar de ${u?.name || 'usuario'}`}
               fill
               sizes="112px"
