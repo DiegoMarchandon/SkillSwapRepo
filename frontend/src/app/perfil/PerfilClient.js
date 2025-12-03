@@ -43,6 +43,8 @@ export default function PerfilClient() {
     const loadMe = async () => {
       try {
         const { data } = await api.get('/user');
+        console.log('Datos recibidos del backend:', data);
+        
         const next = { name: data.name || '', email: data.email || '', id: data.id };
         setU(next);
         setInitialU(next);
@@ -52,7 +54,7 @@ export default function PerfilClient() {
         //   setAvatarPreview('/default-avatar.svg');
         // }
         if(data.avatar_seed){
-          setAvatarPreview(`https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${u?.avatar_seed}&size=128`);
+          setAvatarPreview(`https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${data.avatar_seed}&size=128`);
         } else {
             setAvatarPreview('/default-avatar.svg');
           }
