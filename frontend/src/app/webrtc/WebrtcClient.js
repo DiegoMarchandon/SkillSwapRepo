@@ -28,6 +28,7 @@ export default function WebrtcClient() {
   const search = useSearchParams();
   const meetingId = search.get('meeting_id');
   const otherUserId = search.get('other_user_id');
+  const currentUserIdFromUrl = search.get('current_user_id');
   const usuarioHabilidadId = search.get('usuario_habilidad_id');
   const forceCaller = search.get('forceCaller'); // <-- NUEVO
 
@@ -271,29 +272,22 @@ export default function WebrtcClient() {
     // ========== ARRANCAR CALLER ==========
     // ========== NUEVA LÓGICA DE ROLES ==========
     const determineRole = () => {
-      // 1. Forzar rol si viene en URL (para testing)
       if (forceCaller === 'true') return true;
       if (forceCaller === 'false') return false;
       
-      // 2. Comparar IDs si ambos están disponibles
-      const currentUserId = user?.id;
-      const otherUserIdNum = parseInt(otherUserId);
-      
-      if (currentUserId && otherUserIdNum) {
-        // El usuario con ID MENOR es el caller
-        const isCallerByComparison = currentUserId < otherUserIdNum;
-        console.log('🔍 Comparación de IDs:', {
-          currentUserId,
-          otherUserId: otherUserIdNum,
-          isCallerByComparison
+      // Comparar el user.id del contexto con currentUserId de la URL
+      if (user?.id && currentUserIdFromUrl) {
+        const isCaller = user.id === parseInt(currentUserIdFromUrl);
+        console.log('🔍 Rol por comparación URL:', {
+          userIdContext: user.id,
+          currentUserIdFromUrl,
+          isCaller
         });
-        return isCallerByComparison;
+        return isCaller;
       }
       
-      // 3. Fallback a la lógica original
-      const fallbackIsCaller = !!otherUserId;
-      console.log('🔄 Fallback a lógica original:', { otherUserId, fallbackIsCaller });
-      return fallbackIsCaller;
+      // Fallback
+      return !!otherUserId;
     };
 
     const isCurrentUserCaller = determineRole();
