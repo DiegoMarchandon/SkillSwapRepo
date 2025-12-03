@@ -432,18 +432,37 @@ export default function WebrtcClient() {
         </div>
       </div>
 
-      <div className="flex gap-4 items-center">
+            <div className="flex flex-wrap gap-4 items-center">
         <button
           onClick={endCall}
           className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
         >
           Terminar llamada
         </button>
+
+        {fallbackMeetUrl && (
+          <button
+            type="button"
+            onClick={() => window.open(fallbackMeetUrl, '_blank')}
+            className="px-4 py-2 bg-yellow-400 text-black rounded hover:bg-yellow-300"
+          >
+            🚑 Plan B: abrir Google Meet
+          </button>
+        )}
+
         <span className="text-sm text-gray-600">
           Estado: {callStarted ? '✅ Conectado' : '⏳ Conectando...'} | Rol:{' '}
           {isCaller ? '🎤 Caller' : '🎧 Receiver'}
         </span>
       </div>
+
+      {fallbackMeetUrl && (
+        <p className="text-xs text-gray-400 mt-2 max-w-xl">
+          Si la videollamada se ve muy lenta o no aparece el video remoto,
+          podés usar el plan B por Google Meet con el botón de arriba.
+        </p>
+      )}
+
     </div>
   );
 }
