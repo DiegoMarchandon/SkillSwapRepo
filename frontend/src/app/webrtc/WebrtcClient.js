@@ -14,7 +14,7 @@ export default function WebrtcClient() {
   const socketRef = useRef(null);
   const localStreamRef = useRef(null);
 
-  // para asegurar que no se arranque más de una vez
+  // Para evitar arrancar 2 veces caller/receiver
   const callerStartedRef = useRef(false);
   const receiverStartedRef = useRef(false);
 
@@ -28,56 +28,56 @@ export default function WebrtcClient() {
   const search = useSearchParams();
   const meetingId = search.get('meeting_id');
   const otherUserId = search.get('other_user_id');
-  const currentUserIdFromUrl = search.get('current_user_id');
   const usuarioHabilidadId = search.get('usuario_habilidad_id');
-  const forceCaller = search.get('forceCaller'); // <-- NUEVO
+  const role = search.get('role'); // 'caller' | 'receiver'
 
-  // =============== MEDIA LOCAL SIMPLE ===============
-  const getLocalMedia = useCallback(
-    async () => {
-      try {
-        if (localStreamRef.current) {
-          localStreamRef.current.getTracks().forEach((t) => t.stop());
-        }
-
-        const constraints = {
-          video: { width: { ideal: 640 }, height: { ideal: 480 } },
-          audio: true,
-        };
-
-        console.log('🎯 getUserMedia con constraints:', constraints);
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-
-        localStreamRef.current = stream;
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
-        setMediaError(null);
-        return stream;
-      } catch (err) {
-        console.error('❌ Error obteniendo media:', err);
-
-        try {
-          console.log('🔄 Fallback solo audio');
-          const audioStream = await navigator.mediaDevices.getUserMedia({
-            video: false,
-            audio: true,
-          });
-          localStreamRef.current = audioStream;
-          if (localVideoRef.current) {
-            localVideoRef.current.srcObject = audioStream;
-          }
-          setMediaError('Solo audio disponible');
-          return audioStream;
-        } catch (err2) {
-          console.error('❌ Fallback audio también falló:', err2);
-          setMediaError(`No se pudo acceder a la cámara/micrófono: ${err.message}`);
-          throw err;
-        }
+  // =============== MEDIA LOCAL ===============
+  const getLocalMedia = useCallback(async () => {
+    try {
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((t) => t.stop());
       }
-    },
-    []
-  );
+
+      const constraints = {
+        video: { width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: true,
+      };
+
+      console.log('🎯 getUserMedia con constraints:', constraints);
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+      localStreamRef.current = stream;
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+      setMediaError(null);
+      return stream;
+    } catch (err) {
+      console.error('❌ Error obteniendo media:', err);
+
+      // Fallback: solo audio
+      try {
+        console.log('🔄 Fallback solo audio');
+        const audioStream = await navigator.mediaDevices.getUserMedia({
+          video: false,
+          audio: true,
+        });
+
+        localStreamRef.current = audioStream;
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = audioStream;
+        }
+
+        setMediaError('Solo audio disponible');
+        return audioStream;
+      } catch (err2) {
+        console.error('❌ Fallback audio también falló:', err2);
+      }
+
+      setMediaError(`No se pudo acceder a la cámara/micrófono: ${err.message}`);
+      throw err;
+    }
+  }, []);
 
   // =============== CLEANUP ===============
   const cleanup = useCallback(() => {
@@ -130,13 +130,16 @@ export default function WebrtcClient() {
   useEffect(() => {
     if (!meetingId) return;
 
-    // evitar re-inicializar si por algún motivo React vuelve a montar
     if (socketRef.current) {
       console.log('⚠️ WebRTC ya inicializado, omito nueva conexión');
       return;
     }
 
     console.log('🟢 Inicializando WebRTC, meeting:', meetingId);
+
+    // Rol viene de la URL: alumno = caller, instructor = receiver
+    const isCurrentUserCaller = role === 'caller';
+    setIsCaller(isCurrentUserCaller);
 
     const socketUrl =
       process.env.NEXT_PUBLIC_SOCKET_URL ||
@@ -147,12 +150,11 @@ export default function WebrtcClient() {
     const socket = io(socketUrl, {
       timeout: 15000,
       transports: ['websocket', 'polling'],
-      reconnection: false, // ⛔ nada de reconectar en loop
+      reconnection: false,
     });
 
     socketRef.current = socket;
 
-    // logs básicos
     socket.on('connect', () => {
       console.log('✅ Socket conectado, ID:', socket.id);
       socket.emit('join', { meetingId });
@@ -162,26 +164,25 @@ export default function WebrtcClient() {
       console.error('❌ connect_error:', err.message);
     });
 
-    // ========== HANDLERS SEÑALIZACIÓN ==========
+    // ---------- HANDLERS SEÑALIZACIÓN ----------
     const handleOffer = async ({ offer, call_id, meetingId: incomingMeeting }) => {
       if (incomingMeeting && incomingMeeting !== meetingId) return;
 
       console.log('📞 OFFER RECIBIDA');
 
-      // solo el receiver maneja la offer
-      if (otherUserId) {
+      // SOLO el receiver maneja la offer
+      if (isCurrentUserCaller) {
         console.log('Soy caller, ignoro offer');
         return;
       }
 
       if (receiverStartedRef.current) {
-        console.log('Receiver ya está inicializado, ignoro nueva offer');
+        console.log('Receiver ya iniciado, ignoro nueva offer');
         return;
       }
       receiverStartedRef.current = true;
 
       setCallStarted(true);
-      setIsCaller(false);
       localStorage.setItem('call_id', call_id);
 
       try {
@@ -269,35 +270,7 @@ export default function WebrtcClient() {
     socket.on('ice-candidate', handleIceCandidate);
     socket.on('end-call', handleEndCall);
 
-    // ========== ARRANCAR CALLER ==========
-    // ========== NUEVA LÓGICA DE ROLES ==========
-    const determineRole = () => {
-      if (forceCaller === 'true') return true;
-      if (forceCaller === 'false') return false;
-      
-      // Comparar el user.id del contexto con currentUserId de la URL
-      if (user?.id && currentUserIdFromUrl) {
-        const isCaller = user.id === parseInt(currentUserIdFromUrl);
-        console.log('🔍 Rol por comparación URL:', {
-          userIdContext: user.id,
-          currentUserIdFromUrl,
-          isCaller
-        });
-        return isCaller;
-      }
-      
-      // Fallback
-      return !!otherUserId;
-    };
-
-    const isCurrentUserCaller = determineRole();
-    console.log('🎭 Role:', isCurrentUserCaller ? 'CALLER' : 'RECEIVER', {
-      userId: user?.id,
-      otherUserId,
-      forceCaller
-    });
-    setIsCaller(isCurrentUserCaller);
-
+    // ---------- ARRANCAR CALLER ----------
     let callTimer = null;
 
     if (isCurrentUserCaller) {
@@ -356,7 +329,7 @@ export default function WebrtcClient() {
       }, 3000);
     }
 
-    // ========== CLEANUP EFFECT ==========
+    // ---------- CLEANUP EFFECT ----------
     return () => {
       console.log('🧹 Cleanup effect WebRTC');
       if (callTimer) clearTimeout(callTimer);
@@ -373,8 +346,15 @@ export default function WebrtcClient() {
       callerStartedRef.current = false;
       receiverStartedRef.current = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [meetingId, otherUserId, usuarioHabilidadId]);
+  }, [
+    meetingId,
+    role,
+    otherUserId,
+    usuarioHabilidadId,
+    startCall,
+    getLocalMedia,
+    cleanup,
+  ]);
 
   // =============== RENDER ===============
   return (
@@ -422,7 +402,9 @@ export default function WebrtcClient() {
               console.log('🎬 Remote video can play, intento play()');
               remoteVideoRef.current
                 ?.play()
-                .catch((e) => console.log('⚠️ Auto-play bloqueado:', e.message));
+                .catch((e) =>
+                  console.log('⚠️ Auto-play bloqueado:', e.message)
+                );
             }}
             onPlaying={() => console.log('▶️ Remote video PLAYING')}
           />
