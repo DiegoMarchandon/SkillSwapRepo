@@ -30,6 +30,9 @@ export default function WebrtcClient() {
   const otherUserId = search.get('other_user_id');
   const usuarioHabilidadId = search.get('usuario_habilidad_id');
   const role = search.get('role'); // 'caller' | 'receiver'
+  const forceCaller = search.get('forceCaller');
+
+  const fallbackMeetUrl = process.env.NEXT_PUBLIC_FALLBACK_MEET_URL;
 
   // =============== MEDIA LOCAL ===============
   const getLocalMedia = useCallback(async () => {
@@ -291,19 +294,7 @@ export default function WebrtcClient() {
           const stream = await getLocalMedia();
 
           const pc = new RTCPeerConnection({
-            iceServers: [
-              { urls: 'stun:stun.l.google.com:19302' },
-              {
-                urls: 'turn:openrelay.metered.ca:80',
-                username: 'openrelayproject',
-                credential: 'openrelayproject',
-              },
-              {
-                urls: 'turn:openrelay.metered.ca:443',
-                username: 'openrelayproject',
-                credential: 'openrelayproject',
-              },
-            ],
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
           });
           pcRef.current = pc;
 
@@ -462,7 +453,6 @@ export default function WebrtcClient() {
           podés usar el plan B por Google Meet con el botón de arriba.
         </p>
       )}
-
     </div>
   );
 }
