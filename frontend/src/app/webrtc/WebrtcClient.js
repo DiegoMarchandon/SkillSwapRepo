@@ -14,7 +14,7 @@ export default function WebrtcClient() {
   const socketRef = useRef(null);
   const localStreamRef = useRef(null);
 
-  // Evitar arrancar 2 veces caller/receiver
+  // Para evitar arrancar 2 veces caller/receiver
   const callerStartedRef = useRef(false);
   const receiverStartedRef = useRef(false);
 
@@ -30,6 +30,8 @@ export default function WebrtcClient() {
   const otherUserId = search.get('other_user_id');
   const usuarioHabilidadId = search.get('usuario_habilidad_id');
   const role = search.get('role'); // 'caller' | 'receiver'
+  const forceCaller = search.get('forceCaller'); // p.ej. ?forceCaller=1
+
   const fallbackMeetUrl = process.env.NEXT_PUBLIC_FALLBACK_MEET_URL;
 
   // =============== MEDIA LOCAL ===============
@@ -138,8 +140,21 @@ export default function WebrtcClient() {
 
     console.log('🟢 Inicializando WebRTC, meeting:', meetingId);
 
-    // Rol viene de la URL: alumno = caller, instructor = receiver
-    const isCurrentUserCaller = role === 'caller';
+    // Determinar rol:
+    // 1) si viene forceCaller en la URL, manda eso
+    // 2) si no, usamos role=caller|receiver
+    const isForcedCaller =
+      forceCaller === '1' ||
+      forceCaller === 'true' ||
+      forceCaller === 'caller';
+
+    const isCurrentUserCaller = isForcedCaller || role === 'caller';
+
+    console.log('🎭 Rol WebRTC -> isCaller:', isCurrentUserCaller, {
+      role,
+      forceCaller,
+    });
+
     setIsCaller(isCurrentUserCaller);
 
     const socketUrl =
@@ -190,9 +205,7 @@ export default function WebrtcClient() {
         const stream = await getLocalMedia();
 
         const pc = new RTCPeerConnection({
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-          ],
+          iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
         });
         pcRef.current = pc;
 
@@ -294,9 +307,7 @@ export default function WebrtcClient() {
           const stream = await getLocalMedia();
 
           const pc = new RTCPeerConnection({
-            iceServers: [
-              { urls: 'stun:stun.l.google.com:19302' },
-            ],
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
           });
           pcRef.current = pc;
 
@@ -354,6 +365,7 @@ export default function WebrtcClient() {
   }, [
     meetingId,
     role,
+    forceCaller,
     otherUserId,
     usuarioHabilidadId,
     startCall,
@@ -470,7 +482,7 @@ export default function WebrtcClient() {
                 onClick={() => window.open(fallbackMeetUrl, '_blank')}
                 className="px-4 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-sm font-semibold text-slate-900 shadow-md shadow-amber-900/30 flex items-center gap-2"
               >
-                <span>Plan B: abrir Google Meet</span>
+                Plan B: abrir Google Meet
               </button>
             )}
           </div>
