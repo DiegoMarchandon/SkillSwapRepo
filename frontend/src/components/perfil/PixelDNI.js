@@ -69,11 +69,12 @@ export default function PixelDNI({
           {/* Avatar */}
           <div className="relative h-28 w-28 rounded-[8px] overflow-hidden border border-[#000] shadow-[2px_2px_0_#000]">
             <Image
-              src={
-                avatarPreview ||
-                (u?.avatar_path && `${process.env.NEXT_PUBLIC_API_URL}${u.avatar_path}`) ||
-                '/default-avatar.png'
-              }
+              // src={
+              //   avatarPreview ||
+              //   (u?.avatar_path && `${process.env.NEXT_PUBLIC_API_URL}${u.avatar_path}`) ||
+              //   '/default-avatar.png'
+              // }
+              src={`https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${user.avatar_seed}&size=128`}
               alt={`Avatar de ${u?.name || 'usuario'}`}
               fill
               sizes="112px"

@@ -26,6 +26,7 @@ class User extends Authenticatable
         'condicion',
         'nivel_experiencia',
         'disponibilidad',
+        'avatar_seed'
     ];
 
     protected $hidden = ['password', 'remember_token'];
