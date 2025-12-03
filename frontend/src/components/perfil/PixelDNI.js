@@ -40,6 +40,8 @@ export default function PixelDNI({
     y.set(offsetY);
   };
 
+  console.log("Avatar seed: ", u?.avatar_seed);
+
   return (
     <div className="flex flex-col justify-center items-center w-full">
       <motion.form
