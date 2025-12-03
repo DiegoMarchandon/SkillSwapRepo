@@ -20,8 +20,7 @@ export default function MeetingPage() {
     both_connected: false,
   });
 
-  // URL de plan B (Google Meet) desde env
-  const fallbackMeetUrl = process.env.NEXT_PUBLIC_FALLBACK_MEET_URL;
+
 
   // 1. CARGAR INFO DE LA REUNIÓN
   useEffect(() => {
@@ -241,7 +240,7 @@ export default function MeetingPage() {
               </div>
             </div>
 
-            {/* Botones de acción + Plan B */}
+            {/* Botones de acción */}
             <div className="flex flex-col md:flex-row gap-4 mb-8 justify-center">
               {isInstructor ? (
                 <button
@@ -278,16 +277,6 @@ export default function MeetingPage() {
               >
                 📋 COPIAR ENLACE
               </button>
-
-              {fallbackMeetUrl && (
-                <button
-                  onClick={() => window.open(fallbackMeetUrl, '_blank')}
-                  className="px-8 py-4 bg-red-500 text-gray-900 border-4 border-red-700 rounded-none hover:bg-red-400 transition font-mono text-xl font-bold"
-                  style={{ boxShadow: '4px 4px 0 #000' }}
-                >
-                  🚑 PLAN B: ABRIR GOOGLE MEET
-                </button>
-              )}
             </div>
 
             {/* Mensajes con estado de conexión */}

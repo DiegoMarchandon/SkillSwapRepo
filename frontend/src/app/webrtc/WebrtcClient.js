@@ -14,7 +14,7 @@ export default function WebrtcClient() {
   const socketRef = useRef(null);
   const localStreamRef = useRef(null);
 
-  // Para evitar arrancar 2 veces caller/receiver
+  // Evitar arrancar 2 veces caller/receiver
   const callerStartedRef = useRef(false);
   const receiverStartedRef = useRef(false);
 
@@ -30,8 +30,6 @@ export default function WebrtcClient() {
   const otherUserId = search.get('other_user_id');
   const usuarioHabilidadId = search.get('usuario_habilidad_id');
   const role = search.get('role'); // 'caller' | 'receiver'
-  const forceCaller = search.get('forceCaller');
-
   const fallbackMeetUrl = process.env.NEXT_PUBLIC_FALLBACK_MEET_URL;
 
   // =============== MEDIA LOCAL ===============
@@ -129,7 +127,7 @@ export default function WebrtcClient() {
     [meetingId, cleanup]
   );
 
-  // =============== EFFECT PRINCIPAL ===============
+  // =============== EFFECT PRINCIPAL (WEBRTC) ===============
   useEffect(() => {
     if (!meetingId) return;
 
@@ -192,7 +190,9 @@ export default function WebrtcClient() {
         const stream = await getLocalMedia();
 
         const pc = new RTCPeerConnection({
-          iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+          ],
         });
         pcRef.current = pc;
 
@@ -294,7 +294,9 @@ export default function WebrtcClient() {
           const stream = await getLocalMedia();
 
           const pc = new RTCPeerConnection({
-            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+            iceServers: [
+              { urls: 'stun:stun.l.google.com:19302' },
+            ],
           });
           pcRef.current = pc;
 
@@ -359,100 +361,135 @@ export default function WebrtcClient() {
     cleanup,
   ]);
 
+  // =============== PREVIEW INICIAL DE CÁMARA ===============
+  useEffect(() => {
+    getLocalMedia().catch((err) => {
+      console.error('❌ Error en preview inicial de cámara:', err);
+    });
+  }, [getLocalMedia]);
+
   // =============== RENDER ===============
   return (
-    <div className="p-6 space-y-4">
-      <h1 className="text-xl font-bold">
-        Videollamada WebRTC - {isCaller ? 'Caller' : 'Receiver'}
-      </h1>
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
+      <div className="w-full max-w-6xl bg-slate-900/90 border border-cyan-500/40 rounded-2xl shadow-[0_0_40px_rgba(34,211,238,0.25)] p-6 space-y-5">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              SkillSwap · Videollamada{' '}
+              <span className="text-cyan-400">
+                {isCaller ? 'Alumno' : 'Instructor'}
+              </span>
+            </h1>
+            <p className="text-xs text-slate-400 mt-1">
+              ID reunión: <span className="font-mono">{meetingId}</span>
+            </p>
+          </div>
 
-      {mediaError && (
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
-          {mediaError}
+          <span className="px-3 py-1 text-xs rounded-full bg-slate-800 border border-emerald-500/60 text-emerald-200 flex items-center gap-2">
+            <span className="inline-block h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            WebRTC – {callStarted ? 'Conectado' : 'Conectando...'}
+          </span>
         </div>
-      )}
 
-      <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
-        ✅ Conexión WebRTC – {callStarted ? 'Conectado' : 'Conectando...'}
-      </div>
-
-      <div className="flex gap-4">
-        <div className="w-1/2">
-          <h3 className="text-sm font-medium mb-2">Tu cámara (local)</h3>
-          <video
-            ref={localVideoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full border-2 border-green-500 rounded-lg"
-            style={{ minHeight: '300px', backgroundColor: '#f0f0f0' }}
-          />
-          {!localVideoRef.current?.srcObject && (
-            <div className="text-gray-500 text-sm mt-2">
-              Esperando acceso a cámara...
-            </div>
-          )}
-        </div>
-        <div className="w-1/2">
-          <h3 className="text-sm font-medium mb-2">Cámara remota</h3>
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            className="w-full border-2 border-blue-500 rounded-lg"
-            style={{ minHeight: '300px', backgroundColor: '#000' }}
-            onCanPlay={() => {
-              console.log('🎬 Remote video can play, intento play()');
-              remoteVideoRef.current
-                ?.play()
-                .catch((e) =>
-                  console.log('⚠️ Auto-play bloqueado:', e.message)
-                );
-            }}
-            onPlaying={() => console.log('▶️ Remote video PLAYING')}
-          />
-          {remoteVideoRef.current?.srcObject ? (
-            <div className="text-green-600 text-sm mt-2">
-              ✅ Recibiendo video remoto
-            </div>
-          ) : (
-            <div className="text-gray-500 text-sm mt-2">
-              Esperando video remoto...
-            </div>
-          )}
-        </div>
-      </div>
-
-            <div className="flex flex-wrap gap-4 items-center">
-        <button
-          onClick={endCall}
-          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-        >
-          Terminar llamada
-        </button>
-
-        {fallbackMeetUrl && (
-          <button
-            type="button"
-            onClick={() => window.open(fallbackMeetUrl, '_blank')}
-            className="px-4 py-2 bg-yellow-400 text-black rounded hover:bg-yellow-300"
-          >
-            🚑 Plan B: abrir Google Meet
-          </button>
+        {mediaError && (
+          <div className="bg-amber-900/40 border border-amber-500/60 text-amber-100 px-4 py-3 rounded-lg text-sm">
+            {mediaError}
+          </div>
         )}
 
-        <span className="text-sm text-gray-600">
-          Estado: {callStarted ? '✅ Conectado' : '⏳ Conectando...'} | Rol:{' '}
-          {isCaller ? '🎤 Caller' : '🎧 Receiver'}
-        </span>
-      </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Local */}
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+              <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
+              Tu cámara (local)
+            </h3>
+            <div className="rounded-xl border border-emerald-500/60 bg-slate-900 overflow-hidden">
+              <video
+                ref={localVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-[280px] object-cover bg-slate-800"
+              />
+            </div>
+            {!localVideoRef.current?.srcObject && (
+              <div className="text-xs text-slate-400">
+                Esperando acceso a cámara...
+              </div>
+            )}
+          </div>
 
-      {fallbackMeetUrl && (
-        <p className="text-xs text-gray-400 mt-2 max-w-xl">
-          Si la videollamada se ve muy lenta o no aparece el video remoto,
-          podés usar el plan B por Google Meet con el botón de arriba.
-        </p>
-      )}
+          {/* Remota */}
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+              <span className="inline-block h-2 w-2 rounded-full bg-cyan-400" />
+              Cámara remota
+            </h3>
+            <div className="rounded-xl border border-cyan-500/60 bg-slate-900 overflow-hidden">
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                className="w-full h-[280px] object-cover bg-black"
+                onCanPlay={() => {
+                  console.log('🎬 Remote video can play, intento play()');
+                  remoteVideoRef.current
+                    ?.play()
+                    .catch((e) =>
+                      console.log('⚠️ Auto-play bloqueado:', e.message)
+                    );
+                }}
+                onPlaying={() => console.log('▶️ Remote video PLAYING')}
+              />
+            </div>
+            {remoteVideoRef.current?.srcObject ? (
+              <div className="text-xs text-emerald-300">
+                ✅ Recibiendo video remoto
+              </div>
+            ) : (
+              <div className="text-xs text-slate-400">
+                Esperando video remoto...
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-3 items-center justify-between border-t border-slate-800 pt-4">
+          <div className="flex flex-wrap gap-3 items-center">
+            <button
+              onClick={endCall}
+              className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-sm font-semibold text-white shadow-md shadow-red-900/40"
+            >
+              Terminar llamada
+            </button>
+
+            {fallbackMeetUrl && (
+              <button
+                type="button"
+                onClick={() => window.open(fallbackMeetUrl, '_blank')}
+                className="px-4 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-sm font-semibold text-slate-900 shadow-md shadow-amber-900/30 flex items-center gap-2"
+              >
+                <span>Plan B: abrir Google Meet</span>
+              </button>
+            )}
+          </div>
+
+          <span className="text-xs text-slate-400">
+            Estado:{' '}
+            {callStarted ? '✅ Conectado' : '⏳ Intentando conectar...'} · Rol:{' '}
+            {isCaller ? '🎤 Alumno (caller)' : '🎧 Instructor (receiver)'}
+          </span>
+        </div>
+
+        {fallbackMeetUrl && (
+          <p className="text-[11px] text-slate-500 mt-1">
+            Si la videollamada WebRTC se ve muy lenta o no aparece el video remoto
+            (por restricciones de red o firewall), podés continuar la sesión usando
+            el plan B por Google Meet con el botón de arriba.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
