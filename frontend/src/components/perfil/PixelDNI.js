@@ -40,7 +40,7 @@ export default function PixelDNI({
     y.set(offsetY);
   };
 
-  console.log("Avatar seed: ", u?.avatar_seed);
+  console.log("Avatar seed en PixelDNI: ", u?.avatar_seed);
 
   return (
     <div className="flex flex-col justify-center items-center w-full">
@@ -71,12 +71,12 @@ export default function PixelDNI({
           {/* Avatar */}
           <div className="relative h-28 w-28 rounded-[8px] overflow-hidden border border-[#000] shadow-[2px_2px_0_#000]">
             <Image
-              // src={
-              //   avatarPreview ||
-              //   (u?.avatar_path && `${process.env.NEXT_PUBLIC_API_URL}${u.avatar_path}`) ||
-              //   '/default-avatar.png'
-              // }
-              src={`https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${u?.avatar_seed}&size=128`}
+              src={
+                avatarPreview ||
+                (u?.avatar_path && `${process.env.NEXT_PUBLIC_API_URL}${u.avatar_path}`) ||
+                '/default-avatar.png'
+              }
+              // src={`https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${u?.avatar_seed}&size=128`}
               alt={`Avatar de ${u?.name || 'usuario'}`}
               fill
               sizes="112px"

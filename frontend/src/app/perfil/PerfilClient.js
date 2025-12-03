@@ -46,11 +46,16 @@ export default function PerfilClient() {
         const next = { name: data.name || '', email: data.email || '', id: data.id };
         setU(next);
         setInitialU(next);
-        if (data.avatar_path) {
-          setAvatarPreview(`${process.env.NEXT_PUBLIC_API_URL}${data.avatar_path}`);
+        // if (data.avatar_path) {
+        //   setAvatarPreview(`${process.env.NEXT_PUBLIC_API_URL}${data.avatar_path}`);
+        // } else {
+        //   setAvatarPreview('/default-avatar.svg');
+        // }
+        if(data.avatar_seed){
+          setAvatarPreview(`https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${u?.avatar_seed}&size=128`);
         } else {
-          setAvatarPreview('/default-avatar.svg');
-        }
+            setAvatarPreview('/default-avatar.svg');
+          }
       } catch (e) {
         if (e.response?.status === 401) router.push('/login');
       } finally {
@@ -123,8 +128,11 @@ export default function PerfilClient() {
 
       setUser(prev => ({ ...(prev ?? {}), name: res.data.user.name, email: res.data.user.email, id: res.data.user.id }));
 
-      if (res.data.user.avatar_path) {
-        setAvatarPreview(`${process.env.NEXT_PUBLIC_API_URL}${res.data.user.avatar_path}`);
+      // if (res.data.user.avatar_path) {
+      //   setAvatarPreview(`${process.env.NEXT_PUBLIC_API_URL}${res.data.user.avatar_path}`);
+      // }
+      if(res.data.user.avatad_seed){
+        setAvatarPreview(`https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${u?.avatar_seed}&size=128`);
       }
       setAvatarFile(null);
     } catch (e) {
@@ -180,6 +188,8 @@ export default function PerfilClient() {
       setSavingPwd(false);
     }
   };
+
+  console.log("Avatar seed en PerfilClient: ", u?.avatar_seed);
 
   if (loading) return <div className="p-6">Cargando…</div>;
 
