@@ -1,5 +1,6 @@
 // app/meeting/[meetingId]/page.js
 'use client';
+
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import api from '../../../utils/axios';
@@ -8,7 +9,7 @@ import SpriteCloudSky from '../../../components/background/SpriteCloudSky';
 export default function MeetingPage() {
   const params = useParams();
   const meetingId = params.meetingId;
-  
+
   const [reserva, setReserva] = useState(null);
   const [loading, setLoading] = useState(true);
   const [meetingStarted, setMeetingStarted] = useState(false);
@@ -16,9 +17,13 @@ export default function MeetingPage() {
   const [waitingRoomStatus, setWaitingRoomStatus] = useState({
     instructor_connected: false,
     alumno_connected: false,
-    both_connected:false
+    both_connected: false,
   });
 
+  // URL de plan B (Google Meet) desde env
+  const fallbackMeetUrl = process.env.NEXT_PUBLIC_FALLBACK_MEET_URL;
+
+  // 1. CARGAR INFO DE LA REUNIÓN
   useEffect(() => {
     async function loadMeetingData() {
       try {
@@ -35,7 +40,7 @@ export default function MeetingPage() {
     loadMeetingData();
   }, [meetingId]);
 
-  // 1. REGISTRAR PRESENCIA AL CARGAR
+  // 2. REGISTRAR PRESENCIA AL CARGAR
   useEffect(() => {
     const registerPresence = async () => {
       try {
@@ -47,18 +52,20 @@ export default function MeetingPage() {
 
     if (reserva) {
       registerPresence();
-      
+
       // Re-registrar cada 2 minutos
       const interval = setInterval(registerPresence, 120000);
       return () => clearInterval(interval);
     }
   }, [meetingId, reserva]);
 
-  // 2. POLLING PARA ESTADO DE SALA
+  // 3. POLLING PARA ESTADO DE SALA (QUIÉN ESTÁ CONECTADO)
   useEffect(() => {
     const checkWaitingRoomStatus = async () => {
       try {
-        const { data } = await api.get(`/meeting/${meetingId}/waiting-room-status`);
+        const { data } = await api.get(
+          `/meeting/${meetingId}/waiting-room-status`
+        );
         setWaitingRoomStatus(data);
       } catch (error) {
         console.error('Error verificando estado de sala:', error);
@@ -71,46 +78,45 @@ export default function MeetingPage() {
     }
   }, [meetingId, reserva, meetingStarted]);
 
-  // 🔥 Inicializar WebRTC pasando rol explícito
+  // 4. ARMAR URL PARA WEBRTC
   const initializeWebRTC = () => {
     if (!reserva) {
-      alert('Error: datos de la reserva no disponibles');
+      alert('Error: reserva no cargada. Recarga la página.');
       return;
     }
 
-    // El alumno (quien reserva) es el CALLER
-    // El instructor es el RECEIVER
-    const currentUserId = isInstructor ? reserva.instructor_id : reserva.alumno_id;
-    const otherUserId   = isInstructor ? reserva.alumno_id     : reserva.instructor_id;
+    const currentUserId = isInstructor
+      ? reserva.instructor_id
+      : reserva.alumno_id;
+    const otherUserId = isInstructor
+      ? reserva.alumno_id
+      : reserva.instructor_id;
 
     if (!currentUserId || !otherUserId) {
       alert('Error: IDs de usuario no disponibles. Recarga la página.');
       return;
     }
 
-    const role = isInstructor ? 'receiver' : 'caller';
-
     window.location.href =
       `/webrtc?meeting_id=${meetingId}` +
       `&current_user_id=${currentUserId}` +
-      `&other_user_id=${otherUserId}` +
-      `&role=${role}`;
+      `&other_user_id=${otherUserId}`;
   };
 
-  // 3. POLLING PARA ALUMNO (espera a que el profe inicie)
+  // 5. POLLING PARA ALUMNO: CUANDO EL PROFE INICIA, REDIRIGE A WEBRTC
   useEffect(() => {
     if (!isInstructor && !meetingStarted && reserva) {
       console.log('🔄 Iniciando polling para alumno...');
-      
+
       const interval = setInterval(async () => {
         try {
           const { data } = await api.get(`/meeting/${meetingId}/status`);
           console.log('📡 Status check:', data);
-          
+
           if (data.started || data.estado === 'en_curso') {
             console.log('✅ Reunión iniciada! Redirigiendo alumno...');
             setMeetingStarted(true);
-            initializeWebRTC();
+            initializeWebRTC(); // redirige a /webrtc
             clearInterval(interval);
           }
         } catch (error) {
@@ -122,6 +128,7 @@ export default function MeetingPage() {
     }
   }, [isInstructor, meetingStarted, meetingId, reserva]);
 
+  // 6. PROFE: INICIAR REUNIÓN
   async function startMeeting() {
     try {
       // Verificar que ambos estén conectados
@@ -138,11 +145,13 @@ export default function MeetingPage() {
     }
   }
 
+  // 7. COPIAR LINK DE LA SALA DE ESPERA
   function copyLink() {
     navigator.clipboard.writeText(window.location.href);
     alert('Enlace copiado al portapapeles!');
   }
 
+  // 8. ESTADOS DE CARGA / ERROR
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -159,28 +168,33 @@ export default function MeetingPage() {
     );
   }
 
+  // 9. RENDER
   return (
     <div className="min-h-screen relative">
       <SpriteCloudSky />
-      
+
       {/* Sala de espera */}
       {!meetingStarted && (
         <div className="max-w-6xl mx-auto p-6 z-30 relative">
+          {/* Contenedor principal con estilo pixel art */}
           <div
             className="bg-gray-800 border-4 border-gray-700 backdrop-blur-sm bg-opacity-90 p-8"
             style={{ boxShadow: '8px 8px 0 #000' }}
           >
+            {/* Título principal */}
             <h1
               className="text-4xl font-bold text-center text-white mb-8 font-mono pixel-text"
               style={{
                 fontFamily: 'VT323, monospace',
-                textShadow: '2px 2px 0 #000, 4px 4px 0 rgba(103, 232, 249, 0.3)',
+                textShadow:
+                  '2px 2px 0 #000, 4px 4px 0 rgba(103, 232, 249, 0.3)',
                 letterSpacing: '2px',
               }}
             >
               🕐 SALA DE ESPERA
             </h1>
 
+            {/* Información de usuarios */}
             <div className="grid md:grid-cols-2 gap-6 mb-8">
               {/* Usuario actual */}
               <div
@@ -195,7 +209,9 @@ export default function MeetingPage() {
                   TÚ ({isInstructor ? 'INSTRUCTOR' : 'ALUMNO'})
                 </h3>
                 <p className="text-lg">{reserva.current_user.name}</p>
-                <p className="text-sm opacity-80">{reserva.current_user.email}</p>
+                <p className="text-sm opacity-80">
+                  {reserva.current_user.email}
+                </p>
               </div>
 
               {/* Otro usuario */}
@@ -211,7 +227,9 @@ export default function MeetingPage() {
                   {isInstructor ? 'ALUMNO' : 'INSTRUCTOR'}
                 </h3>
                 <p className="text-lg">{reserva.other_user.name}</p>
-                <p className="text-sm opacity-80">{reserva.other_user.email}</p>
+                <p className="text-sm opacity-80">
+                  {reserva.other_user.email}
+                </p>
                 <p className="text-lg mt-3 font-bold">
                   ESTADO:{' '}
                   {waitingRoomStatus.both_connected ? (
@@ -223,7 +241,8 @@ export default function MeetingPage() {
               </div>
             </div>
 
-            <div className="flex gap-4 mb-8 justify-center">
+            {/* Botones de acción + Plan B */}
+            <div className="flex flex-col md:flex-row gap-4 mb-8 justify-center">
               {isInstructor ? (
                 <button
                   onClick={startMeeting}
@@ -259,8 +278,19 @@ export default function MeetingPage() {
               >
                 📋 COPIAR ENLACE
               </button>
+
+              {fallbackMeetUrl && (
+                <button
+                  onClick={() => window.open(fallbackMeetUrl, '_blank')}
+                  className="px-8 py-4 bg-red-500 text-gray-900 border-4 border-red-700 rounded-none hover:bg-red-400 transition font-mono text-xl font-bold"
+                  style={{ boxShadow: '4px 4px 0 #000' }}
+                >
+                  🚑 PLAN B: ABRIR GOOGLE MEET
+                </button>
+              )}
             </div>
 
+            {/* Mensajes con estado de conexión */}
             {!isInstructor && (
               <div
                 className={`px-6 py-4 rounded-none border-4 font-mono text-lg text-center mb-6 ${
@@ -276,6 +306,7 @@ export default function MeetingPage() {
               </div>
             )}
 
+            {/* Información de la reunión */}
             <div
               className="bg-gray-700/80 border-4 border-gray-600 rounded-none p-6 backdrop-blur-sm"
               style={{ boxShadow: '6px 6px 0 #000' }}
@@ -303,7 +334,7 @@ export default function MeetingPage() {
         </div>
       )}
 
-      {/* Vista de reunión iniciada (en la práctica redirige a /webrtc) */}
+      {/* Videollamada - (en la práctica redirigís a /webrtc, así que casi no se ve) */}
       {meetingStarted && (
         <div className="max-w-6xl mx-auto p-6 z-30 relative">
           <div
@@ -314,7 +345,8 @@ export default function MeetingPage() {
               className="text-4xl font-bold text-center text-white mb-8 font-mono pixel-text"
               style={{
                 fontFamily: 'VT323, monospace',
-                textShadow: '2px 2px 0 #000, 4px 4px 0 rgba(103, 232, 249, 0.3)',
+                textShadow:
+                  '2px 2px 0 #000, 4px 4px 0 rgba(103, 232, 249, 0.3)',
                 letterSpacing: '2px',
               }}
             >
@@ -326,7 +358,7 @@ export default function MeetingPage() {
               style={{ boxShadow: '6px 6px 0 #000' }}
             >
               <p className="text-gray-300 mb-6 font-mono text-xl">
-                Serás redirigido a la videollamada...
+                COMPONENTE WEBRTC SE CARGARÁ AQUÍ...
               </p>
 
               <button
@@ -334,7 +366,7 @@ export default function MeetingPage() {
                 className="px-8 py-4 bg-green-500 text-gray-900 border-4 border-green-700 rounded-none hover:bg-green-400 transition font-mono text-xl font-bold"
                 style={{ boxShadow: '4px 4px 0 #000' }}
               >
-                VOLVER A INTENTAR REDIRECCIÓN
+                INICIALIZAR VIDEOCALL
               </button>
             </div>
           </div>
