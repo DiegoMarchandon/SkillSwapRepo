@@ -77,7 +77,7 @@ export default function MeetingPage() {
     }
   }, [meetingId, reserva, meetingStarted]);
 
-  // 4. ARMAR URL PARA WEBRTC
+    // 4. ARMAR URL PARA WEBRTC
   const initializeWebRTC = () => {
     if (!reserva) {
       alert('Error: reserva no cargada. Recarga la página.');
@@ -96,11 +96,18 @@ export default function MeetingPage() {
       return;
     }
 
-    window.location.href =
-      `/webrtc?meeting_id=${meetingId}` +
-      `&current_user_id=${currentUserId}` +
-      `&other_user_id=${otherUserId}`;
+    
+    const roleParam = isInstructor ? 'receiver' : 'caller';
+    const params = new URLSearchParams({
+      meeting_id: meetingId,
+      current_user_id: String(currentUserId),
+      other_user_id: String(otherUserId),
+      role: roleParam,
+    });
+
+    window.location.href = `/webrtc?${params.toString()}`;
   };
+
 
   // 5. POLLING PARA ALUMNO: CUANDO EL PROFE INICIA, REDIRIGE A WEBRTC
   useEffect(() => {
